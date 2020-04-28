@@ -4,7 +4,126 @@ LOCATION = {'a':[('charizard',100, 1, 0)]}
 
 import pygame
 pygame.init()
+window = pygame.display.set_mode((550, 600))
+pygame.display.set_caption('Pokemon')
 import random
+class Screen:
+    def __init__(self, location,player):
+        done = []
+        for boundary in location.boundaries:
+            tile = Boundary_Tile(boundary[0]*5, boundary[1]*5)
+            if tile.x == player.x and player.y == tile.y:
+                self.curr_tile = tile
+            self.check_tile(done, tile)
+            done.append(tile)
+
+    def check_tile(self, l, tile):
+        for tiles in l:
+            if tiles == Tile(tile.x-5, tile.y):
+                tile.left, tiles.right = tiles, tile
+            elif tiles == Tile(tile.x+5, tile.y):
+                tile.right, tiles.left = tiles, tile
+            elif tiles == Tile(tile.x, tile.y - 5)
+                tile.up, tiles.down = tiles, tile
+            elif tiles == Tile(tile.x,tile.y + 5)
+                tile.down, tiles.down = tiles, tile
+            if tiles.left is not None and tiles.right is not None and \
+                    tiles.down is not None and tiles.up is not None:
+                l.remove(tiles)
+class Tile:
+    def __init__(self, x, y, height = 5, width= 5):
+        self.x, self.y, self.height, self.width = x, y, height, width
+        self.left = self.right= self.up=self.down = None
+    def walk_to(self, player):
+        raise NotImplementedError
+    def move_player(self, player):
+        player.x, player.y = self.x, self.y
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+class Boundary_Tile(Tile):
+    def __init__(self, x, y):
+        Tile.__init__(x, y)
+        self.colour = 46,46,46
+    def walk_to(self, player):
+        return False
+class Wild_Tile(Tile):
+    def __init__(self, x, y):
+        Tile.__init__(x, y)
+        self.colour = 0, 102, 9
+    def walk_to(self, player):
+        if random.randint(1,100) >75:
+            return True
+        return False
+class Normal_Tile(Tile):
+    def __init__(self):
+        self.colour = 80, 240, 62
+    def walk_to(self, player):
+        self.move_player(player)
+        return False
+class Item_Tile(Tile):
+    def __init__(self, x, y, item):
+        Tile.__init__(x, y)
+        self.got = False
+        self.item = item
+    def walk_to(self, player):
+        if not self.got:
+            player.bag.add_item(self.item)
+            print("You found a {}".format(self.item.name))
+            self.got = True
+            return False
+        else:
+            self.move_player(player)
+
+
+class Location:
+    '''
+    pokmeon:all possible pokemon that can be spawned and what their level can be
+    location_id: uniue identifier number which will help correspond to
+    where the end of each level ends
+    '''
+    def __init__(self, pokemon, file):
+        self.pokemon = pokemon
+        self.create_level(file)
+    def create_level(self, file):
+        '''
+        >>> l = Location([], 'test_level.txt')
+        >>> print(LOCATION)
+        '''
+        self.boundaries = []
+        self.wild_grass = []
+        self.normal_grass = []
+        self.items ={}
+        f = open(file, 'r')
+        text = f.readline()
+        self.id = text.split(',')[2][0]
+        self.width = int(text.split(',')[1])
+        self.height = int(text.split(',')[0])
+        self.exits = {}
+        for line in range(self.height):
+            text = f.readline()[:-1]
+            for char in range(len(text)):
+                if text[char] == '0':
+                    self.boundaries.append((char, line))
+                elif text[char] == '1':
+                    self.wild_grass.append((char, line))
+                elif text[char] == '2':
+                    self.normal_grass.append((char, line))
+                elif text[char] == '*':
+                    self.items[(char,line)] = len(self.items.keys())
+                else:
+                    self.exits[(char,line)] = char
+        b = self.boundaries
+        text = f.readline()
+        count = 0
+        while text != 'EOF':
+            for key, item in self.items.items():
+                if item == count:
+                    self.items[key] = BALLS[text[1]]
+            text = f.readline()
+            count +=1
+        LOCATION[self.id] = self
+        f.close()
+
 
 
 def str_to_status(str):
@@ -345,10 +464,10 @@ BALLS ={'P': Ball('Poke ball', 1), 'U':Ball('Ultra ball', 1.25), 'G':Ball('Great
 
 
 if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
     Asad = Player('Asad')
     run = True
-    window = pygame.display.set_mode((550, 600))
-    pygame.display.set_caption('Pokemon')
     while run:
         print('b')
         pygame.time.delay(100)
