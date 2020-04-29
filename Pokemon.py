@@ -1,7 +1,8 @@
-LOCATION = {'a':[('charizard',100, 1, 0)]}
+#LOCATION = {'a':[('charizard',100, 1, 0)]}
+LOCATION ={}
 #Location maps to a list of all pokemon there with their spwan rate and their level
 # probality of eveything in the list must equal one
-
+TILE_LENGTH= 40
 import pygame
 pygame.init()
 window = pygame.display.set_mode((550, 600))
@@ -11,7 +12,7 @@ class Screen:
     def __init__(self, location,player):
         done = []
         for boundary in location.boundaries:
-            tile = Boundary_Tile(boundary[0]*5, boundary[1]*5)
+            tile = Boundary_Tile(boundary[0]*TILE_LENGTH, boundary[1]*TILE_LENGTH)
             if tile.x == player.x and player.y == tile.y:
                 self.curr_tile = tile
             self.check_tile(done, tile)
@@ -23,46 +24,49 @@ class Screen:
                 tile.left, tiles.right = tiles, tile
             elif tiles == Tile(tile.x+5, tile.y):
                 tile.right, tiles.left = tiles, tile
-            elif tiles == Tile(tile.x, tile.y - 5)
+            elif tiles == Tile(tile.x, tile.y - 5):
                 tile.up, tiles.down = tiles, tile
-            elif tiles == Tile(tile.x,tile.y + 5)
+            elif tiles == Tile(tile.x,tile.y + 5):
                 tile.down, tiles.down = tiles, tile
             if tiles.left is not None and tiles.right is not None and \
                     tiles.down is not None and tiles.up is not None:
                 l.remove(tiles)
 class Tile:
-    def __init__(self, x, y, height = 5, width= 5):
+    def __init__(self, x, y, height = TILE_LENGTH, width= TILE_LENGTH):
         self.x, self.y, self.height, self.width = x, y, height, width
         self.left = self.right= self.up=self.down = None
     def walk_to(self, player):
         raise NotImplementedError
     def move_player(self, player):
-        player.x, player.y = self.x, self.y
+        player.curr_tile = self
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
 class Boundary_Tile(Tile):
     def __init__(self, x, y):
-        Tile.__init__(x, y)
+        Tile.__init__(self,x, y)
         self.colour = 46,46,46
     def walk_to(self, player):
-        return False
+        pass
 class Wild_Tile(Tile):
     def __init__(self, x, y):
-        Tile.__init__(x, y)
+        Tile.__init__(self,x, y)
         self.colour = 0, 102, 9
     def walk_to(self, player):
+        Tile.move_player(self, player)
         if random.randint(1,100) >75:
-            return True
-        return False
+            print('Encounter')
+            #return PVE_Encounter(player,player.curr_location)
+
 class Normal_Tile(Tile):
-    def __init__(self):
+    def __init__(self, x, y):
+        Tile.__init__(self, x, y)
         self.colour = 80, 240, 62
     def walk_to(self, player):
         self.move_player(player)
-        return False
 class Item_Tile(Tile):
     def __init__(self, x, y, item):
-        Tile.__init__(x, y)
+        Tile.__init__(self,x, y)
+        self.colour = 237, 28, 46
         self.got = False
         self.item = item
     def walk_to(self, player):
@@ -70,9 +74,27 @@ class Item_Tile(Tile):
             player.bag.add_item(self.item)
             print("You found a {}".format(self.item.name))
             self.got = True
-            return False
+            self.colour =  80, 240, 62
         else:
             self.move_player(player)
+class Exit_Tile(Tile):
+    def __init__(self,x,y,location):
+        Tile.__init__(self,x,y)
+        self.colour = 250, 235, 30
+        self.new_location = location
+    def walk_to(self, player):
+        tile = self.new_location.exits[player.curr_location.id]
+        player.curr_location = self.new_location
+        player.curr_tile = self.safe_tile(tile)
+
+    def safe_tile(self, tile):
+        if tile.down is not None and not isinstance(tile.down, Boundary_Tile):
+            return tile.down
+        if tile.up is not None and not isinstance(tile.up, Boundary_Tile):
+            return tile.up
+        if tile.right is not None and not isinstance(tile.right, Boundary_Tile):
+            return tile.right
+        return tile.left
 
 
 class Location:
@@ -88,7 +110,7 @@ class Location:
         '''
         >>> l = Location([], 'test_level.txt')
         >>> print(LOCATION)
-        '''
+
         self.boundaries = []
         self.wild_grass = []
         self.normal_grass = []
@@ -123,8 +145,46 @@ class Location:
             count +=1
         LOCATION[self.id] = self
         f.close()
-
-
+        '''
+        f = open(file)
+        text = f.readline()
+        self.id = text.split(',')[2][0]
+        self.width = int(text.split(',')[1])
+        self.height = int(text.split(',')[0])
+        l = []
+        item_tiles =[]
+        self.exits = {}
+        for line in range(self.height):
+            row = []
+            text = f.readline()[:-1]
+            for char in range(len(text)):
+                if text[char] == '0':
+                    tile = Boundary_Tile(char*TILE_LENGTH,line*TILE_LENGTH)
+                elif text[char] == '1':
+                    tile = Wild_Tile(char*TILE_LENGTH,line*TILE_LENGTH)
+                elif text[char] == '2':
+                    tile = Normal_Tile(char*TILE_LENGTH,line*TILE_LENGTH)
+                elif text[char] == '*':
+                    tile = Item_Tile(char * TILE_LENGTH, line * TILE_LENGTH, None)
+                    item_tiles.append(tile)
+                else:
+                    tile = Exit_Tile(char * TILE_LENGTH, line * TILE_LENGTH,text[char])
+                    self.exits[text[char]] = tile
+                if len(row) >0:
+                    row[-1].right, tile.left = tile, row[-1]
+                if len(l) >0:
+                    l[-1][len(row)].down, tile.up = tile, l[-1][len(row)]
+                row.append(tile)
+            l.append(row)
+        text = f.readline()
+        count = 0
+        while text != 'EOF':
+            for item in item_tiles:
+                item.item = BALLS[text[1]]
+            text = f.readline()
+            count += 1
+        LOCATION[self.id] = self
+        self.start = l[0][0]
 
 def str_to_status(str):
     s = STATUSES[str]
@@ -148,9 +208,9 @@ class Bag:
         return '{} has been removed from your party.'.format(pokemon.name)
     def add_item(self, item):
         if item in self.items:
-            self.poke_balls[item] +=1
+            self.items[item] +=1
         else:
-            self.poke_balls[item] = 1
+            self.items[item] = 1
     def remove_item(self, item):
         self.poke_balls[item] -=1
     def consume_item(self, item, pokemon):
@@ -160,7 +220,7 @@ class Bag:
         return "You don't have anymore of this item."
 
 class Player:
-    def __init__(self, name):
+    def __init__(self, name, location, tile):
         self.name = name
         self.bag = Bag()
         self.inventory = []
@@ -169,7 +229,8 @@ class Player:
         self.y = 50
         self.height = 60
         self.width = 40
-        self.vel = 5
+        self.curr_location = location
+        self.curr_tile = tile
     def add_pokemon(self, pokemon):
         if len(self.bag.pokemons) == 6:
             self.inventory.append(pokemon)
@@ -460,17 +521,40 @@ BALLS ={'P': Ball('Poke ball', 1), 'U':Ball('Ultra ball', 1.25), 'G':Ball('Great
 
 
 
+def print_tile(tile, direction):
+    pygame.draw.rect(window, tile.colour,(tile.x,tile.y, tile.height,tile.width))
+    if (direction and tile.right is None and tile.down is None) or \
+            (not direction and tile.left is None and tile.down is None):
+        return
+    elif (direction and tile.right is None) or (not direction and tile.left is None):
+        return print_tile(tile.down, not direction)
+    if direction:
+
+        return print_tile(tile.right, direction)
+    return print_tile(tile.left, direction)
+
+
+
 
 
 
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-    Asad = Player('Asad')
+    Location([], "test_A.txt")
+    l = Location([('charizard',100, 1, 0)], 'test_level.txt')
+    print(LOCATION)
+    for id, location in LOCATION.items():
+        for key, tile in location.exits.items():
+            tile.new_location = LOCATION[key]
+    Asad = Player('Asad', l, l.start.right.down)
+    print_tile(l.start, True)
+    pygame.draw.circle(window, (30, 213, 230),(Asad.curr_tile.x+TILE_LENGTH//2, Asad.curr_tile.y+TILE_LENGTH//2),20)
+    pygame.display.update()
+
     run = True
     while run:
-        print('b')
-        pygame.time.delay(100)
+        pygame.time.delay(200)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -479,18 +563,18 @@ if __name__ == '__main__':
 
         keys = pygame.key.get_pressed()
         if keys[pygame.K_a]:
-            print('a')
-            Asad.x = max(Asad.x-Asad.vel, 0)
-        if keys[pygame.K_d]:
-            Asad.x = min(550, Asad.x+ Asad.vel)
-        if keys[pygame.K_w]:
-
-            Asad.y = max(0, Asad.y-Asad.vel)
-        if keys[pygame.K_s]:
-            Asad.y = min(600,Asad.y +Asad.vel)
+            Asad.curr_tile.left.walk_to(Asad)
+        elif keys[pygame.K_d]:
+            Asad.curr_tile.right.walk_to(Asad)
+        elif keys[pygame.K_w]:
+            Asad.curr_tile.up.walk_to(Asad)
+        elif keys[pygame.K_s]:
+            Asad.curr_tile.down.walk_to(Asad)
 
         window.fill((0, 0, 0))
-        pygame.draw.rect(window, (255, 0, 0), (Asad.x, Asad.y, Asad.width, Asad.height))
+        print_tile(Asad.curr_location.start, True)
+        pygame.draw.circle(window, (30, 213, 230),
+                           (Asad.curr_tile.x + TILE_LENGTH // 2, Asad.curr_tile.y + TILE_LENGTH // 2), 20)
         pygame.display.update()
     pygame.quit()
     p = Pokemon('pikachu', 5)
