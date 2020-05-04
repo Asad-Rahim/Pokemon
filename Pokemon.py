@@ -8,29 +8,7 @@ pygame.init()
 window = pygame.display.set_mode((550, 600))
 pygame.display.set_caption('Pokemon')
 import random
-class Screen:
-    def __init__(self, location,player):
-        done = []
-        for boundary in location.boundaries:
-            tile = Boundary_Tile(boundary[0]*TILE_LENGTH, boundary[1]*TILE_LENGTH)
-            if tile.x == player.x and player.y == tile.y:
-                self.curr_tile = tile
-            self.check_tile(done, tile)
-            done.append(tile)
 
-    def check_tile(self, l, tile):
-        for tiles in l:
-            if tiles == Tile(tile.x-5, tile.y):
-                tile.left, tiles.right = tiles, tile
-            elif tiles == Tile(tile.x+5, tile.y):
-                tile.right, tiles.left = tiles, tile
-            elif tiles == Tile(tile.x, tile.y - 5):
-                tile.up, tiles.down = tiles, tile
-            elif tiles == Tile(tile.x,tile.y + 5):
-                tile.down, tiles.down = tiles, tile
-            if tiles.left is not None and tiles.right is not None and \
-                    tiles.down is not None and tiles.up is not None:
-                l.remove(tiles)
 class Tile:
     def __init__(self, x, y, height = TILE_LENGTH, width= TILE_LENGTH):
         self.x, self.y, self.height, self.width = x, y, height, width
@@ -55,7 +33,7 @@ class Wild_Tile(Tile):
         Tile.move_player(self, player)
         if random.randint(1,100) >75:
             print('Encounter')
-            #return PVE_Encounter(player,player.curr_location)
+            return PVE_Encounter(player,player.curr_location)
 
 class Normal_Tile(Tile):
     def __init__(self, x, y):
@@ -107,45 +85,6 @@ class Location:
         self.pokemon = pokemon
         self.create_level(file)
     def create_level(self, file):
-        '''
-        >>> l = Location([], 'test_level.txt')
-        >>> print(LOCATION)
-
-        self.boundaries = []
-        self.wild_grass = []
-        self.normal_grass = []
-        self.items ={}
-        f = open(file, 'r')
-        text = f.readline()
-        self.id = text.split(',')[2][0]
-        self.width = int(text.split(',')[1])
-        self.height = int(text.split(',')[0])
-        self.exits = {}
-        for line in range(self.height):
-            text = f.readline()[:-1]
-            for char in range(len(text)):
-                if text[char] == '0':
-                    self.boundaries.append((char, line))
-                elif text[char] == '1':
-                    self.wild_grass.append((char, line))
-                elif text[char] == '2':
-                    self.normal_grass.append((char, line))
-                elif text[char] == '*':
-                    self.items[(char,line)] = len(self.items.keys())
-                else:
-                    self.exits[(char,line)] = char
-        b = self.boundaries
-        text = f.readline()
-        count = 0
-        while text != 'EOF':
-            for key, item in self.items.items():
-                if item == count:
-                    self.items[key] = BALLS[text[1]]
-            text = f.readline()
-            count +=1
-        LOCATION[self.id] = self
-        f.close()
-        '''
         f = open(file)
         text = f.readline()
         self.id = text.split(',')[2][0]
@@ -185,7 +124,7 @@ class Location:
             count += 1
         LOCATION[self.id] = self
         self.start = l[0][0]
-
+        f.close()
 def str_to_status(str):
     s = STATUSES[str]
     return Status(str, s[0], s[1], s[2], s[3], s[4],s[5])
@@ -195,8 +134,6 @@ class Bag:
         self.pokemons = []
     def add_pokemon(self, pokemon):
       #precondition len(self.pokemons)<6
-        if self.main is None:
-            self.main = pokemon
         self.pokemons.append(pokemon)
         return '{} has been added from your party.'.format(pokemon.name)
         #return "{} has been sent to the Professor, since you can't hold anymore pokemon."
@@ -212,7 +149,7 @@ class Bag:
         else:
             self.items[item] = 1
     def remove_item(self, item):
-        self.poke_balls[item] -=1
+        self.items[item] -=1
     def consume_item(self, item, pokemon):
         if self.items[item] >0:
             self.remove_item(item)
@@ -246,15 +183,18 @@ class PVE_Encounter:
     def __init__(self,player,location):
         self.player = player
         self.player_pokemon = player.main
-        self.get_enemy(location)
-    def get_enemy(self, location):
+        self.used = [self.player_pokemon]
+        self.location = location
+        self.get_enemy()
+        self.turn = 0
+    def get_enemy(self):
         l = []
-        for pokemon in LOCATION[location]:
+        for pokemon in self.location.pokemon:
             for i in range(pokemon[1]):
                 l.append(pokemon)
         pokemon = l[random.randint(0,len(l)-1)]
         self.enemy = Pokemon(pokemon[0], pokemon[2], pokemon[3])
-    def play(self):
+    def _play(self):
         while self.game_on():
             print(self.player_pokemon.hp)
             print(self.enemy.hp)
@@ -270,13 +210,26 @@ class PVE_Encounter:
                 print(self.player_pokemon.attack( self.enemy, p))
                 if self.game_on():
                     print(self.enemy.attack( self.player_pokemon, en))
-
+    def play(self, attack):
+        self.turn +=1
+        print("Turn #{}".format(self.turn))
+        en = self.enemy_move()
+        if en.speed > attack.speed:
+            print(self.enemy.attack(self.player_pokemon, en))
+            if self.game_on():
+                print(self.player_pokemon.attack(self.enemy, attack))
+        else:
+            print(self.player_pokemon.attack(self.enemy, attack))
+            if self.game_on():
+                print(self.enemy.attack(self.player_pokemon, en))
+        print("{} health:{}\t{} health:{}".format(self.player_pokemon.name, self.player_pokemon.hp,
+                                                          self.enemy.name, self.enemy.hp))
     def game_on(self):
         return self.player_pokemon.hp >0 and self.enemy.hp >0
     def catch(self):
         ball = input('What ball do you want?\nP-Poke ball\nG-Great ball\nU-Ultra ball\nM-Master Ball')
-        for key in self.player.bag.items.keys():
-            if key.name[0] == ball:
+        for key, item in self.player.bag.items.items():
+            if key.name[0] == ball and item >0:
                 caught = self.player.bag.consume_item(key, self.enemy)
                 for i in range(max(caught,3)):
                     self.shake()
@@ -289,6 +242,22 @@ class PVE_Encounter:
         return 'Invalid ball.'
     def change_pokemon(self, pokemon):
         self.player_pokemon = pokemon
+        self.used.append(pokemon)
+    def xp_gain(self):
+        xp = self.enemy.level*random.randint(90,110)
+        xp_per = xp//len(self.used)
+        for pokemon in self.used:
+            level = pokemon.level
+            evolve = pokemon.add_xp(xp_per)
+            print("{} got {} xp for the battle".format(pokemon.level, xp_per))
+            if pokemon.level !=level:
+                print("{} grew to level {}".format(pokemon.name, pokemon.level))
+            if evolve:
+                ans = input("Do you want {} to evolve into {}?\n'Y' for yes, 'N' for no")
+                if ans == 'Y':
+                    new_pokemon = Pokemon(pokemon.evolution[0], pokemon.evolution[1])
+                    pokemon.swap_pokemon(new_pokemon)
+
     def caught_animation(self):
         pass
     def shake(self):
@@ -305,7 +274,7 @@ class PVE_Encounter:
         return doable[random.randint(0,len(doable)-1)]
 
 
-POKEMON= {'pikachu':[120,'Electrike', ('Raichu', 20),190,'iron tail','thunder'],
+POKEMON= {'pikachu':[120,'Electrike', ('Raichu', 20),190,'iron tail','thunder', 'rock crush'],
           'charizard':[170,'Fire', ('None', 0), 45,'flame thrower', 'rock crush']}
 ATTACKS={'iron tail': [30,15,0.0,70,100, 'Normal',('',100)], 'thunder':[65, 5, 0.2,80,80, 'Electrike',('',100)],
          'flame thrower':[40,15, 0.0, 70,95,'Fire',('Burned', 50)], 'rock crush':[55,5,0.1, 40,70, 'Ground',('',100)]}
@@ -336,6 +305,7 @@ class Pokemon:
         while self.xp >= self.next_level:
             self.xp -= self.next_level
             evolution = evolution or self.level_up()
+        return evolution
         if evolution:
             ans = input("Do you want {} to evolve into {}?\n'Y' for yes, 'N' for no")
             if ans == 'Y':
@@ -396,9 +366,9 @@ class Pokemon:
                         s = '.\n{} was hit with recoil during the attack'.format(self.name) +s
                         self.set_hp(sd)
                     extra += s
-                    if victim.status.name == '' and attack.status[1] >= random.randint(1,100):
+                    if attack.status[0] != '' and attack.status[1] >= random.randint(1,100):
                         victim.status = str_to_status(attack.status[0])
-                        extra += '.\n{} is now {}'.format(victim.name, )
+                        extra += '.\n{} is now {}'.format(victim.name, victim.status.name)
 
             else:
                 extra = '{} tried using {}, but is {}.'.format(self.name, attack.name, self.status.name)
@@ -500,11 +470,13 @@ class Ball(Item):
         self.catch_rate = catch_rate
         self.name = name
     def use(self, pokemon):
+        if pokemon.catch_rate == 0:
+            return 0
         a = max((3*pokemon.maxhp- 2*pokemon.hp)*self.catch_rate*pokemon.catch_rate/(3*pokemon.maxhp), 1)
         num = random.randint(1,255)
         if num <= a:
             return 4
-        b = 65536 / (255/a)^0.1875
+        b = 65536 / (255/a)**0.1875
         count = 0
         while count !=4 and random.randint(1, 255)< b:
             count +=1
@@ -534,25 +506,117 @@ def print_tile(tile, direction):
     return print_tile(tile.left, direction)
 
 
+def UI_encounter(encounter):
+    pygame.display.set_mode((550,700))
+    while encounter.game_on():
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                break
+        pygame.time.delay(100)
+        window.fill((0, 0, 0))
+        pygame.draw.circle(window, (255, 255, 255), (120, 280), 80)
+        pygame.draw.circle(window, (255, 255, 255), (400, 100), 80)
+        #pygame.draw.rect(window, (255, 255, 255), (350, 450, 150, 80))
+        font = pygame.font.Font('freesansbold.ttf', 18)
+        font2 = pygame.font.Font('freesansbold.ttf', 14)
+        run_txt = font.render("Run", True, (0,0,0),(255,255,255))
+        runrect = run_txt.get_rect()
+        runrect.center= (260,630)
+        run_btn = pygame.draw.rect(window, (255, 255, 255), (200, 600, 120, 60))
+        window.blit(run_txt, runrect)
 
+        catch_txt = font.render("Catch", True, (0, 0, 0), (255, 255, 255))
+        catch_rect = catch_txt.get_rect()
+        catch_rect.center = (450, 630)
+        catch_btn = pygame.draw.rect(window, (255, 255, 255), (430, 600, 120, 60))
+        window.blit(catch_txt, catch_rect)
+        attacks = []
+        run_btn = pygame.draw.rect(window, (255, 255, 255), (200, 600, 120, 60))
+        window.blit(run_txt, runrect)
+
+        p_hp = font.render("{}/{}".format(encounter.player_pokemon.hp,
+                                          encounter.player_pokemon.maxhp), True, (46,46,46),(255,255,255))
+        e_hp = font.render("{}/{}".format(encounter.enemy.hp, encounter.enemy.maxhp),
+                           True, (46,46,46),(255,255,255))
+        e_rect = e_hp.get_rect()
+        e_rect.center = (500,50)
+        p_rect = p_hp.get_rect()
+        p_rect.center = (100, 180)
+        window.blit(p_hp, p_rect)
+        window.blit(e_hp, e_rect)
+        for i in  range(len(encounter.player_pokemon.attacks)):
+            a = encounter.player_pokemon.attacks[i]
+            big_text = font.render(a.name, True, (0, 0, 0), (255, 255, 255))
+            lil_text = font2.render("{}    {}/{}".format(a.type, a.pp, a.max_pp), True, (0, 0, 0),
+                                 (255, 255, 255))
+            text1Rect = big_text.get_rect()
+            text2Rect = lil_text.get_rect()
+            x = 125 + (i%2)*250
+            y = 450 +(i>1)*90
+            text1Rect.center = (x, y)
+            text2Rect.center = (x, y+20)
+            attacks.append((pygame.draw.rect(window, (255, 255, 255), (x-75, y-30, 150, 70)), a))
+            window.blit(big_text, text1Rect)
+            window.blit(lil_text, text2Rect)
+        '''
+        for attack in range(len(encounter.player_pokemon.attacks)):
+            if attack %2 == 0:
+        attack1 =encounter.player_pokemon.attacks[0]
+        attack2 =encounter.player_pokemon.attacks[1]
+        
+        
+        
+        text3Rect = text1.get_rect()
+        text4Rect = text2.get_rect()
+
+        # set the center of the rectangular object.
+        text1Rect.center = (125 , 520)
+        text2Rect.center = (425, 520)
+        text3Rect.center = (125, 540)
+        text4Rect.center = (425, 540)
+        '''
+
+        #window.blit(text2, text2Rect)
+        #window.blit(text3, text3Rect)
+        #window.blit(text4, text4Rect)
+        pygame.display.update()
+        pos = pygame.mouse.get_pos()
+        pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
+        if run_btn.collidepoint(pos) and pressed1:
+            break
+        if catch_btn.collidepoint(pos) and pressed1:
+            temp = encounter.catch()
+            print(temp)
+            if temp[:5] == 'Nice!':
+                break
+        for a in attacks:
+            if a[0].collidepoint(pos) and pressed1:
+                encounter.play(a[1])
 
 
 
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-    Location([], "test_A.txt")
+    Location([('charizard',100, 1, 100)], "test_A.txt")
     l = Location([('charizard',100, 1, 0)], 'test_level.txt')
+    pygame.display.set_mode((l.width * TILE_LENGTH, l.height * TILE_LENGTH))
     print(LOCATION)
     for id, location in LOCATION.items():
         for key, tile in location.exits.items():
             tile.new_location = LOCATION[key]
     Asad = Player('Asad', l, l.start.right.down)
+    s = POKEMON['pikachu']
+    Asad.add_pokemon(Pokemon('pikachu', 5))
     print_tile(l.start, True)
     pygame.draw.circle(window, (30, 213, 230),(Asad.curr_tile.x+TILE_LENGTH//2, Asad.curr_tile.y+TILE_LENGTH//2),20)
     pygame.display.update()
-
+    encounter = None
     run = True
+    #e = PVE_Encounter(Asad, Asad.curr_location)
+    #print(e.catch())
+    #UI_encounter(PVE_Encounter(Asad, Asad.curr_location))
+    curr = Asad.curr_location
     while run:
         pygame.time.delay(200)
 
@@ -563,19 +627,25 @@ if __name__ == '__main__':
 
         keys = pygame.key.get_pressed()
         if keys[pygame.K_a]:
-            Asad.curr_tile.left.walk_to(Asad)
+            encounter = Asad.curr_tile.left.walk_to(Asad)
         elif keys[pygame.K_d]:
-            Asad.curr_tile.right.walk_to(Asad)
+            encounter = Asad.curr_tile.right.walk_to(Asad)
         elif keys[pygame.K_w]:
-            Asad.curr_tile.up.walk_to(Asad)
+            encounter = Asad.curr_tile.up.walk_to(Asad)
         elif keys[pygame.K_s]:
-            Asad.curr_tile.down.walk_to(Asad)
-
+            encounter = Asad.curr_tile.down.walk_to(Asad)
         window.fill((0, 0, 0))
+        if curr != Asad.curr_location:
+            curr = Asad.curr_location
+            pygame.display.set_mode((curr.width*TILE_LENGTH, curr.height*TILE_LENGTH))
         print_tile(Asad.curr_location.start, True)
         pygame.draw.circle(window, (30, 213, 230),
                            (Asad.curr_tile.x + TILE_LENGTH // 2, Asad.curr_tile.y + TILE_LENGTH // 2), 20)
         pygame.display.update()
+        if encounter is not None:
+            UI_encounter(encounter)
+            encounter = None
+            pygame.display.set_mode((curr.width * TILE_LENGTH, curr.height * TILE_LENGTH))
     pygame.quit()
     p = Pokemon('pikachu', 5)
     e = PVE_Encounter(p, 'a')
