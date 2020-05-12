@@ -4,7 +4,7 @@ LOCATION ={}
 # probality of eveything in the list must equal one
 TILE_LENGTH= 40
 WIDTH, HEIGHT = 550,700
-screen_dimensions = 15,10
+screen_dimensions = 15,11
 import pygame
 pygame.init()
 window = pygame.display.set_mode((550, 600))
@@ -19,8 +19,7 @@ class Tile:
         raise NotImplementedError
     def move_player(self, player):
         player.curr_tile = self
-    def __eq__(self, other):
-        return self.x == other.x and self.y == other.y
+
 class Boundary_Tile(Tile):
     def __init__(self, x, y, colour = None):
         Tile.__init__(self,x, y)
@@ -185,6 +184,7 @@ class Player:
         self.width = 40
         self.curr_location = location
         self.curr_tile = tile
+        self.make_corners()
     def add_pokemon(self, pokemon):
         if len(self.bag.pokemons) == 6:
             self.inventory.append(pokemon)
@@ -195,7 +195,33 @@ class Player:
     def change_main(self, pokemon):
         #pokemon must be in bag
         self.main = pokemon
-    def corners(self):
+    def make_corners(self):
+        x, y = screen_dimensions
+        x, y = x-1,y-1
+        left,right = self.curr_tile, self.curr_tile
+        while x >0:
+            if left.left is not None:
+                left = left.left
+                x -= 1
+            if right.right is not None:
+                right = right.right
+                x -= 1
+            if left.left is None and right.right is None:
+                x = 0
+        up_left, down_left, up_right, down_right = left, left, right,right
+        while y>0:
+            if up_left.up is not None:
+                up_left = up_left.up
+                y -=1
+                up_right = up_right.up
+            if down_left.down is not None:
+                down_left = down_left.down
+                down_right = down_right.down
+                y -= 1
+            if up_left.up is  None and down_left.down is  None:
+                y = 0
+        self.corners = [up_left, up_right, down_left, down_right]
+
 
 class PVE_Encounter:
     def __init__(self,player,location):
@@ -670,6 +696,26 @@ def UI_encounter(encounter):
     if not run:
         if encounter.enemy not in encounter.player.inventory+ encounter.player.bag.pokemons:
             encounter.xp_gain()
+def print_screen(player):
+    tile = player.corners[0]
+    direction = True
+    x, y = (WIDTH - player.curr_location.width * 40) // 2, (HEIGHT - player.curr_location.height * 40) // 2
+    while tile != player.corners[2]:
+        pygame.draw.rect(window,tile.colour,(x,y, TILE_LENGTH, TILE_LENGTH))
+        if tile == player.curr_tile:
+            pygame.draw.circle(window,  (30, 213, 230), (x+20,y+20), 20)
+        if direction and tile.right is not None:
+            x += TILE_LENGTH
+            tile = tile.right
+        elif not direction and tile.left is not None:
+            x -= TILE_LENGTH
+            tile = tile.left
+        if (direction and tile.right is None) or (not direction and tile.left is None):
+            y += TILE_LENGTH
+            tile = tile.down
+            direction = not direction
+
+
 
 
 if __name__ == '__main__':
@@ -688,7 +734,8 @@ if __name__ == '__main__':
     Asad.add_pokemon(Pokemon('pikachu', 5))
     print(l.height, l.width)
     #print_tile(l.start, True, (WIDTH -l.width*40)//2,(HEIGHT-l.height*40)//2)
-    print_player(Asad)
+    #print_player(Asad)
+    print_screen(Asad)
     pygame.draw.circle(window, (30, 213, 230),((WIDTH -l.width*40)//2+20,(HEIGHT-l.height*40)//2+20),20)
     pygame.display.update()
     encounter = None
@@ -704,25 +751,37 @@ if __name__ == '__main__':
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
-
-
         keys = pygame.key.get_pressed()
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
+            if Asad.corners[0].left is not None:
+                for corner in range(len(Asad.corners)):
+                    Asad.corners[corner] = Asad.corners[corner].left
             encounter = Asad.curr_tile.left.walk_to(Asad)
         elif keys[pygame.K_d]or keys[pygame.K_RIGHT]:
+            if Asad.corners[1].right is not None:
+                for corner in range(len(Asad.corners)):
+                    Asad.corners[corner] = Asad.corners[corner].right
             encounter = Asad.curr_tile.right.walk_to(Asad)
         elif keys[pygame.K_w]or keys[pygame.K_UP]:
+            if Asad.corners[0].up is not None:
+                for corner in range(len(Asad.corners)):
+                    Asad.corners[corner] = Asad.corners[corner].up
             encounter = Asad.curr_tile.up.walk_to(Asad)
         elif keys[pygame.K_s] or keys[pygame.K_DOWN]:
+            if Asad.corners[2].down is not None:
+                for corner in range(len(Asad.corners)):
+                    Asad.corners[corner] = Asad.corners[corner].down
             encounter = Asad.curr_tile.down.walk_to(Asad)
         window.fill((46,46,46))
         if curr != Asad.curr_location:
             curr = Asad.curr_location
+            Asad.make_corners()
+            i = 1
             #pygame.display.set_mode((curr.width*TILE_LENGTH, curr.height*TILE_LENGTH))
-        print_player(Asad)
+        print_screen(Asad)
         #aaaaaaprint_tile(Asad.curr_location.start, True, (WIDTH -Asad.curr_location.width*40)//2,(HEIGHT-Asad.curr_location.height*40)//2)
-        pygame.draw.circle(window, (30, 213, 230),
-                           (Asad.curr_tile.x +20+ (WIDTH -Asad.curr_location.width*40)//2, Asad.curr_tile.y + 20+(HEIGHT-Asad.curr_location.height*40)//2), 20)
+        #pygame.draw.circle(window, (30, 213, 230),
+        #                   (Asad.curr_tile.x +20+ (WIDTH -Asad.curr_location.width*40)//2, Asad.curr_tile.y + 20+(HEIGHT-Asad.curr_location.height*40)//2), 20)
         pygame.display.update()
         if encounter is not None and Asad.main.hp>0:
             UI_encounter(encounter)
