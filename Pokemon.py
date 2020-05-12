@@ -4,7 +4,7 @@ LOCATION ={}
 # probality of eveything in the list must equal one
 TILE_LENGTH= 40
 WIDTH, HEIGHT = 550,700
-screen_dimensions = 15,15
+screen_dimensions = 13,15
 import pygame
 pygame.init()
 window = pygame.display.set_mode((550, 600))
@@ -12,6 +12,9 @@ pygame.display.set_caption('Pokemon')
 import random
 
 class Tile:
+    """
+    Basic tile class. Tiles are what the player walks around on in the screen
+    """
     def __init__(self, x, y, height = TILE_LENGTH, width= TILE_LENGTH):
         self.x, self.y, self.height, self.width = x, y, height, width
         self.left = self.right= self.up=self.down = None
@@ -69,7 +72,15 @@ class Item_Tile(Tile):
         else:
             self.move_player(player)
 class Exit_Tile(Tile):
+    """
+    Tile that connects a level to the next
+    """
     def __init__(self,x,y,location, colour = None):
+        """
+        Location is normally the Location object. But during intialization it is the id
+        This is because not all the locations have been made yet. So, the exit tile can't point to the tiles yet.
+        Once all the locations have been created, the location for each tile gets updated
+        """
         Tile.__init__(self,x,y)
         if colour is None:
             self.colour = 250, 235, 30
@@ -142,9 +153,15 @@ class Location:
         self.start = l[0][0]
         f.close()
 def str_to_status(str):
+    '''
+    used to create statuses using the global dicts. made for simple use in testing
+    '''
     s = STATUSES[str]
     return Status(str, s[0], s[1], s[2], s[3], s[4],s[5])
 class Bag:
+    """
+    A bag which the player holds containg everything they have on them. Limited to 6 pokemon
+    """
     def __init__(self):
         self.items ={}
         self.pokemons = []
@@ -173,6 +190,9 @@ class Bag:
         return "You don't have anymore of this item."
 
 class Player:
+    """
+    Actual player
+    """
     def __init__(self, name, location, tile):
         self.name = name
         self.bag = Bag()
@@ -196,6 +216,10 @@ class Player:
         #pokemon must be in bag
         self.main = pokemon
     def make_corners(self):
+        """
+        creatig the moving screen corners of the player using their current location.
+        These cornors allow the screen to stop and start following at certain distances from the edge
+        """
         x, y = screen_dimensions
         x, y = x-1,y-1
         left,right = self.curr_tile, self.curr_tile
@@ -224,6 +248,9 @@ class Player:
 
 
 class PVE_Encounter:
+    """
+    Pokemon battle between user and the 'AI'
+    """
     def __init__(self,player,location):
         self.player = player
         self.player_pokemon = player.main
@@ -232,6 +259,9 @@ class PVE_Encounter:
         self.get_enemy()
         self.turn = 0
     def get_enemy(self):
+        """
+        choose a pokemon from the ones available in the location
+        """
         l = []
         for pokemon in self.location.pokemon:
             for i in range(pokemon[1]):
@@ -328,6 +358,9 @@ WEAKNESSES ={'Fire':['Water'], 'Electrike':['Ground'], 'Normal': [],'Ground': []
 STRENGTHS ={'Fire':['Grass', 'Flying'], 'Electrike':[], 'Normal':[],'Ground': []}
 MAX_LEVEL =999
 class Pokemon:
+    """
+    Pokemon that can fight, level up and be potentially caought
+    """
     def __init__(self, name, level, catch_rate=None):
         self.name = name
         self.level = level
@@ -387,6 +420,10 @@ class Pokemon:
         if self.hp == 0:
             self.status = str_to_status('Fainted')
     def attack(self, victim, attack):
+        """
+        use attack on victim. Doesn't nessecarly mean dmaage victim. Also return a descriotion of what happened.
+        Descpription will make the game feel more immerserve insread of seeing a health bar
+        """
         status = self.status.status_effect()
         s = ''
         if attack.accuracy >= random.randint(1,100):
@@ -516,6 +553,9 @@ class Ball(Item):
         self.catch_rate = catch_rate
         self.name = name
     def use(self, pokemon):
+        """
+        Use pokeball on pokemon to see if it is caught. Algorithim is copied from pokemon gen 3
+        """
         if pokemon.catch_rate == 0:
             return 0
         a = max((3*pokemon.maxhp- 2*pokemon.hp)*self.catch_rate*pokemon.catch_rate/(3*pokemon.maxhp), 1)
@@ -697,6 +737,9 @@ def UI_encounter(encounter):
         if encounter.enemy not in encounter.player.inventory+ encounter.player.bag.pokemons:
             encounter.xp_gain()
 def print_screen(player):
+    """
+    Print all the tiles in around the player using the corners of player
+    """
     tile = player.corners[0]
     direction = True
     x, y = (WIDTH - screen_dimensions[0] * 40) // 2, (HEIGHT - screen_dimensions[1] * 40) // 2
@@ -705,8 +748,9 @@ def print_screen(player):
             i = 0
         pygame.draw.rect(window,tile.colour,(x,y, TILE_LENGTH, TILE_LENGTH))
         if tile == player.curr_tile:
-            pygame.draw.circle(window,  (30, 213, 230), (x+20,y+20), 20)
-        if (direction and tile.right is None) or (not direction and tile.left is None):
+            pygame.draw.circle(window,  (30, 213, 230), (x+TILE_LENGTH//2,y+TILE_LENGTH//2), TILE_LENGTH//2)
+        if (direction and (tile.right is None or tile.right.x >player.corners[1].x )) or \
+                (not direction and (tile.left is None or tile.left.x <player.corners[0].x )):
             y += TILE_LENGTH
             tile = tile.down
             direction = not direction
@@ -739,7 +783,8 @@ if __name__ == '__main__':
     #print_tile(l.start, True, (WIDTH -l.width*40)//2,(HEIGHT-l.height*40)//2)
     #print_player(Asad)
     print_screen(Asad)
-    pygame.draw.circle(window, (30, 213, 230),((WIDTH -l.width*40)//2+20,(HEIGHT-l.height*40)//2+20),20)
+    pygame.draw.circle(window, (30, 213, 230),((WIDTH -screen_dimensions[0]*40)//2+TILE_LENGTH,
+                                               (HEIGHT-screen_dimensions[1]*40)//2+TILE_LENGTH),TILE_LENGTH//2)
     pygame.display.update()
     encounter = None
     run = True
@@ -757,31 +802,29 @@ if __name__ == '__main__':
         keys = pygame.key.get_pressed()
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
             if Asad.corners[0].left is not None:
-                if  Asad.corners[1].x- Asad.curr_tile.x== Asad.curr_tile.x -Asad.corners[0].x:
-                    Asad.corners[1], Asad.corners[3] = Asad.corners[1].left, Asad.corners[3].left
-                    Asad.corners[0], Asad.corners[2] = Asad.corners[0].left, Asad.corners[2].left
-            #for corner in range(len(Asad.corners)):
-            #    Asad.corners[corner] = Asad.corners[corner].left
+                if Asad.corners[1].x- Asad.curr_tile.x== Asad.curr_tile.x -Asad.corners[0].x:
+                    for corner in range(len(Asad.corners)):
+                        Asad.corners[corner] = Asad.corners[corner].left
             encounter = Asad.curr_tile.left.walk_to(Asad)
         elif keys[pygame.K_d]or keys[pygame.K_RIGHT]:
             if Asad.corners[1].right is not None:
                 if Asad.corners[1].x- Asad.curr_tile.x== Asad.curr_tile.x -Asad.corners[0].x:
-                    Asad.corners[0], Asad.corners[2] = Asad.corners[0].right, Asad.corners[2].right
-                    Asad.corners[1], Asad.corners[3] = Asad.corners[1].right, Asad.corners[3].right
+                    for corner in range(len(Asad.corners)):
+                        Asad.corners[corner] = Asad.corners[corner].right
             encounter = Asad.curr_tile.right.walk_to(Asad)
         elif keys[pygame.K_w]or keys[pygame.K_UP]:
             if Asad.corners[0].up is not None:
                 if Asad.corners[3].y- Asad.curr_tile.y== Asad.curr_tile.y -Asad.corners[0].y:
-                    Asad.corners[2], Asad.corners[3] = Asad.corners[2].up, Asad.corners[3].up
-                    Asad.corners[0], Asad.corners[1] = Asad.corners[0].up, Asad.corners[1].up
+                    for corner in range(len(Asad.corners)):
+                        Asad.corners[corner] = Asad.corners[corner].up
             encounter = Asad.curr_tile.up.walk_to(Asad)
         elif keys[pygame.K_s] or keys[pygame.K_DOWN]:
             if Asad.corners[2].down is not None:
                 if Asad.curr_tile.y - Asad.corners[0].y == Asad.corners[3].y - Asad.curr_tile.y:
-                    Asad.corners[0], Asad.corners[1] = Asad.corners[0].down, Asad.corners[1].down
-                    Asad.corners[2], Asad.corners[3] = Asad.corners[2].down, Asad.corners[3].down
+                    for corner in range(len(Asad.corners)):
+                        Asad.corners[corner] = Asad.corners[corner].down
             encounter = Asad.curr_tile.down.walk_to(Asad)
-        window.fill((0,0,0))
+        window.fill((46,46,46))
         if curr != Asad.curr_location:
             curr = Asad.curr_location
             Asad.make_corners()
