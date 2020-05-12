@@ -69,38 +69,38 @@
     <servers />
   </component>
   <component name="WindowStateProjectService">
-    <state width="1515" height="255" key="GridCell.Tab.0.bottom" timestamp="1589286605742">
+    <state width="1515" height="235" key="GridCell.Tab.0.bottom" timestamp="1589294115082">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
-    <state width="1515" height="255" key="GridCell.Tab.0.bottom/0.0.1536.824@0.0.1536.824" timestamp="1589286605742" />
-    <state width="1515" height="255" key="GridCell.Tab.0.center" timestamp="1589286605742">
+    <state width="1515" height="235" key="GridCell.Tab.0.bottom/0.0.1536.824@0.0.1536.824" timestamp="1589294115082" />
+    <state width="1515" height="235" key="GridCell.Tab.0.center" timestamp="1589294115082">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
-    <state width="1515" height="255" key="GridCell.Tab.0.center/0.0.1536.824@0.0.1536.824" timestamp="1589286605742" />
-    <state width="1515" height="255" key="GridCell.Tab.0.left" timestamp="1589286605741">
+    <state width="1515" height="235" key="GridCell.Tab.0.center/0.0.1536.824@0.0.1536.824" timestamp="1589294115082" />
+    <state width="1515" height="235" key="GridCell.Tab.0.left" timestamp="1589294115082">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
-    <state width="1515" height="255" key="GridCell.Tab.0.left/0.0.1536.824@0.0.1536.824" timestamp="1589286605741" />
-    <state width="1515" height="255" key="GridCell.Tab.0.right" timestamp="1589286605742">
+    <state width="1515" height="235" key="GridCell.Tab.0.left/0.0.1536.824@0.0.1536.824" timestamp="1589294115082" />
+    <state width="1515" height="235" key="GridCell.Tab.0.right" timestamp="1589294115082">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
-    <state width="1515" height="255" key="GridCell.Tab.0.right/0.0.1536.824@0.0.1536.824" timestamp="1589286605742" />
-    <state width="1515" height="324" key="GridCell.Tab.1.bottom" timestamp="1589286528785">
+    <state width="1515" height="235" key="GridCell.Tab.0.right/0.0.1536.824@0.0.1536.824" timestamp="1589294115082" />
+    <state width="1515" height="228" key="GridCell.Tab.1.bottom" timestamp="1589293002145">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
-    <state width="1515" height="324" key="GridCell.Tab.1.bottom/0.0.1536.824@0.0.1536.824" timestamp="1589286528785" />
-    <state width="1515" height="324" key="GridCell.Tab.1.center" timestamp="1589286528784">
+    <state width="1515" height="228" key="GridCell.Tab.1.bottom/0.0.1536.824@0.0.1536.824" timestamp="1589293002145" />
+    <state width="1515" height="228" key="GridCell.Tab.1.center" timestamp="1589293002145">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
-    <state width="1515" height="324" key="GridCell.Tab.1.center/0.0.1536.824@0.0.1536.824" timestamp="1589286528784" />
-    <state width="1515" height="324" key="GridCell.Tab.1.left" timestamp="1589286528784">
+    <state width="1515" height="228" key="GridCell.Tab.1.center/0.0.1536.824@0.0.1536.824" timestamp="1589293002145" />
+    <state width="1515" height="228" key="GridCell.Tab.1.left" timestamp="1589293002145">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
-    <state width="1515" height="324" key="GridCell.Tab.1.left/0.0.1536.824@0.0.1536.824" timestamp="1589286528784" />
-    <state width="1515" height="324" key="GridCell.Tab.1.right" timestamp="1589286528785">
+    <state width="1515" height="228" key="GridCell.Tab.1.left/0.0.1536.824@0.0.1536.824" timestamp="1589293002145" />
+    <state width="1515" height="228" key="GridCell.Tab.1.right" timestamp="1589293002145">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
-    <state width="1515" height="324" key="GridCell.Tab.1.right/0.0.1536.824@0.0.1536.824" timestamp="1589286528785" />
+    <state width="1515" height="228" key="GridCell.Tab.1.right/0.0.1536.824@0.0.1536.824" timestamp="1589293002145" />
     <state x="849" y="238" key="com.intellij.ide.util.TipDialog" timestamp="1589282551552">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
@@ -115,13 +115,8 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/Pokemon.py</url>
-          <line>778</line>
-          <option name="timeStamp" value="18" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/Pokemon.py</url>
-          <line>135</line>
-          <option name="timeStamp" value="20" />
+          <line>704</line>
+          <option name="timeStamp" value="22" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>

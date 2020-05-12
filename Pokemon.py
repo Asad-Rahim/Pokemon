@@ -4,7 +4,7 @@ LOCATION ={}
 # probality of eveything in the list must equal one
 TILE_LENGTH= 40
 WIDTH, HEIGHT = 550,700
-screen_dimensions = 15,11
+screen_dimensions = 15,15
 import pygame
 pygame.init()
 window = pygame.display.set_mode((550, 600))
@@ -699,21 +699,24 @@ def UI_encounter(encounter):
 def print_screen(player):
     tile = player.corners[0]
     direction = True
-    x, y = (WIDTH - player.curr_location.width * 40) // 2, (HEIGHT - player.curr_location.height * 40) // 2
-    while tile != player.corners[2]:
+    x, y = (WIDTH - screen_dimensions[0] * 40) // 2, (HEIGHT - screen_dimensions[1] * 40) // 2
+    while (direction and tile != player.corners[3])or (not direction and tile != player.corners[2]):
+        if tile is None:
+            i = 0
         pygame.draw.rect(window,tile.colour,(x,y, TILE_LENGTH, TILE_LENGTH))
         if tile == player.curr_tile:
             pygame.draw.circle(window,  (30, 213, 230), (x+20,y+20), 20)
-        if direction and tile.right is not None:
+        if (direction and tile.right is None) or (not direction and tile.left is None):
+            y += TILE_LENGTH
+            tile = tile.down
+            direction = not direction
+        elif direction and tile.right is not None:
             x += TILE_LENGTH
             tile = tile.right
         elif not direction and tile.left is not None:
             x -= TILE_LENGTH
             tile = tile.left
-        if (direction and tile.right is None) or (not direction and tile.left is None):
-            y += TILE_LENGTH
-            tile = tile.down
-            direction = not direction
+    pygame.draw.rect(window, tile.colour, (x, y, TILE_LENGTH, TILE_LENGTH))
 
 
 
@@ -721,7 +724,7 @@ def print_screen(player):
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-    Location([('charizard',100, 1, 100)], "test_A.txt")
+    l2 = Location([('charizard',100, 1, 100)], "test_A.txt")
     l = Location([('charizard',100, 1, 0)], 'test_level.txt')
     pygame.display.set_mode((WIDTH, HEIGHT))
     window.fill((46, 46, 46))
@@ -732,7 +735,7 @@ if __name__ == '__main__':
     Asad = Player('Asad', l, l.start.right.down)
     s = POKEMON['pikachu']
     Asad.add_pokemon(Pokemon('pikachu', 5))
-    print(l.height, l.width)
+    print(l2.height, l2.width)
     #print_tile(l.start, True, (WIDTH -l.width*40)//2,(HEIGHT-l.height*40)//2)
     #print_player(Asad)
     print_screen(Asad)
@@ -754,25 +757,31 @@ if __name__ == '__main__':
         keys = pygame.key.get_pressed()
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
             if Asad.corners[0].left is not None:
-                for corner in range(len(Asad.corners)):
-                    Asad.corners[corner] = Asad.corners[corner].left
+                if  Asad.corners[1].x- Asad.curr_tile.x== Asad.curr_tile.x -Asad.corners[0].x:
+                    Asad.corners[1], Asad.corners[3] = Asad.corners[1].left, Asad.corners[3].left
+                    Asad.corners[0], Asad.corners[2] = Asad.corners[0].left, Asad.corners[2].left
+            #for corner in range(len(Asad.corners)):
+            #    Asad.corners[corner] = Asad.corners[corner].left
             encounter = Asad.curr_tile.left.walk_to(Asad)
         elif keys[pygame.K_d]or keys[pygame.K_RIGHT]:
             if Asad.corners[1].right is not None:
-                for corner in range(len(Asad.corners)):
-                    Asad.corners[corner] = Asad.corners[corner].right
+                if Asad.corners[1].x- Asad.curr_tile.x== Asad.curr_tile.x -Asad.corners[0].x:
+                    Asad.corners[0], Asad.corners[2] = Asad.corners[0].right, Asad.corners[2].right
+                    Asad.corners[1], Asad.corners[3] = Asad.corners[1].right, Asad.corners[3].right
             encounter = Asad.curr_tile.right.walk_to(Asad)
         elif keys[pygame.K_w]or keys[pygame.K_UP]:
             if Asad.corners[0].up is not None:
-                for corner in range(len(Asad.corners)):
-                    Asad.corners[corner] = Asad.corners[corner].up
+                if Asad.corners[3].y- Asad.curr_tile.y== Asad.curr_tile.y -Asad.corners[0].y:
+                    Asad.corners[2], Asad.corners[3] = Asad.corners[2].up, Asad.corners[3].up
+                    Asad.corners[0], Asad.corners[1] = Asad.corners[0].up, Asad.corners[1].up
             encounter = Asad.curr_tile.up.walk_to(Asad)
         elif keys[pygame.K_s] or keys[pygame.K_DOWN]:
             if Asad.corners[2].down is not None:
-                for corner in range(len(Asad.corners)):
-                    Asad.corners[corner] = Asad.corners[corner].down
+                if Asad.curr_tile.y - Asad.corners[0].y == Asad.corners[3].y - Asad.curr_tile.y:
+                    Asad.corners[0], Asad.corners[1] = Asad.corners[0].down, Asad.corners[1].down
+                    Asad.corners[2], Asad.corners[3] = Asad.corners[2].down, Asad.corners[3].down
             encounter = Asad.curr_tile.down.walk_to(Asad)
-        window.fill((46,46,46))
+        window.fill((0,0,0))
         if curr != Asad.curr_location:
             curr = Asad.curr_location
             Asad.make_corners()
