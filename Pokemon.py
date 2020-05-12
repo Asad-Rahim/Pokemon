@@ -3,6 +3,8 @@ LOCATION ={}
 #Location maps to a list of all pokemon there with their spwan rate and their level
 # probality of eveything in the list must equal one
 TILE_LENGTH= 40
+WIDTH, HEIGHT = 550,700
+screen_dimensions = 15,10
 import pygame
 pygame.init()
 window = pygame.display.set_mode((550, 600))
@@ -20,15 +22,21 @@ class Tile:
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
 class Boundary_Tile(Tile):
-    def __init__(self, x, y):
+    def __init__(self, x, y, colour = None):
         Tile.__init__(self,x, y)
-        self.colour = 46,46,46
+        if colour is None:
+            self.colour = 46,46,46
+        else:
+            self.colour = colour
     def walk_to(self, player):
         pass
 class Wild_Tile(Tile):
-    def __init__(self, x, y):
+    def __init__(self, x, y, colour = None):
         Tile.__init__(self,x, y)
-        self.colour = 0, 102, 9
+        if colour is None:
+            self.colour = 0, 102, 9
+        else:
+            colour = None
     def walk_to(self, player):
         Tile.move_player(self, player)
         if random.randint(1,100) >75:
@@ -36,15 +44,21 @@ class Wild_Tile(Tile):
             return PVE_Encounter(player,player.curr_location)
 
 class Normal_Tile(Tile):
-    def __init__(self, x, y):
+    def __init__(self, x, y, colour=None):
         Tile.__init__(self, x, y)
-        self.colour = 80, 240, 62
+        if colour is None:
+            self.colour = 80, 240, 62
+        else:
+            self.colour = colour
     def walk_to(self, player):
         self.move_player(player)
 class Item_Tile(Tile):
-    def __init__(self, x, y, item):
+    def __init__(self, x, y, item, colour = None):
         Tile.__init__(self,x, y)
-        self.colour = 237, 28, 46
+        if colour is None:
+            self.colour = 237, 28, 46
+        else:
+            self.colour = colour
         self.got = False
         self.item = item
     def walk_to(self, player):
@@ -56,9 +70,12 @@ class Item_Tile(Tile):
         else:
             self.move_player(player)
 class Exit_Tile(Tile):
-    def __init__(self,x,y,location):
+    def __init__(self,x,y,location, colour = None):
         Tile.__init__(self,x,y)
-        self.colour = 250, 235, 30
+        if colour is None:
+            self.colour = 250, 235, 30
+        else:
+            self.colour = colour
         self.new_location = location
     def walk_to(self, player):
         tile = self.new_location.exits[player.curr_location.id]
@@ -178,6 +195,7 @@ class Player:
     def change_main(self, pokemon):
         #pokemon must be in bag
         self.main = pokemon
+    def corners(self):
 
 class PVE_Encounter:
     def __init__(self,player,location):
@@ -231,6 +249,8 @@ class PVE_Encounter:
         for key, item in self.player.bag.items.items():
             if key.name[0] == ball and item >0:
                 caught = self.player.bag.consume_item(key, self.enemy)
+                if type(caught) == str:
+                    return caught
                 for i in range(max(caught,3)):
                     self.shake()
                 if caught == 4:
@@ -493,47 +513,96 @@ BALLS ={'P': Ball('Poke ball', 1), 'U':Ball('Ultra ball', 1.25), 'G':Ball('Great
 
 
 
-def print_tile(tile, direction):
-    pygame.draw.rect(window, tile.colour,(tile.x,tile.y, tile.height,tile.width))
+def print_tile(tile, direction,x_boundary, y_boundary):
+    pygame.draw.rect(window, tile.colour,(x_boundary+tile.x,y_boundary+tile.y, tile.height,tile.width))
     if (direction and tile.right is None and tile.down is None) or \
             (not direction and tile.left is None and tile.down is None):
         return
     elif (direction and tile.right is None) or (not direction and tile.left is None):
-        return print_tile(tile.down, not direction)
+        return print_tile(tile.down, not direction,x_boundary,y_boundary)
     if direction:
 
-        return print_tile(tile.right, direction)
-    return print_tile(tile.left, direction)
-
-
+        return print_tile(tile.right, direction, x_boundary,y_boundary)
+    return print_tile(tile.left, direction,x_boundary,y_boundary)
+def print_player(player):
+    num = 117
+    going_right = True# t is right
+    going_down = True
+    tile = player.curr_tile
+    while num >0:
+        pygame.draw.rect(window, tile.colour, ((WIDTH - player.curr_location.width * 40) // 2 + tile.x,
+                                               (HEIGHT - player.curr_location.height * 40) // 2 + tile.y, tile.height,
+                                               tile.width))
+        if (going_right and tile.right is None and tile.down is None) or \
+                (not going_right and tile.left is None and tile.down is None):
+            tile = player.curr_tile.left
+            going_right = False
+            going_down = False
+        elif (going_right and tile.right is None) or (not going_right and tile.left is None):
+            if going_down:
+                tile = tile.down
+            else:
+                tile = tile.up
+            going_right = not going_right
+        elif going_right:
+            tile = tile.right
+        elif not going_right:
+            tile = tile.left
+        num -=1
 def UI_encounter(encounter):
-    pygame.display.set_mode((550,700))
+    pygame.display.set_mode((WIDTH,HEIGHT))
+    run = False
     while encounter.game_on():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                run = True
                 break
         pygame.time.delay(100)
-        window.fill((0, 0, 0))
-        pygame.draw.circle(window, (255, 255, 255), (120, 280), 80)
-        pygame.draw.circle(window, (255, 255, 255), (400, 100), 80)
-        #pygame.draw.rect(window, (255, 255, 255), (350, 450, 150, 80))
+        window.fill((80, 240, 62))
+        pygame.draw.circle(window, (0, 102, 9), (120, 280), 80)
+        pygame.draw.circle(window, (0, 102, 9), (400, 100), 80)
+        pygame.draw.rect(window, (25, 187, 212), (20, 380, 510, 300))
         font = pygame.font.Font('freesansbold.ttf', 18)
         font2 = pygame.font.Font('freesansbold.ttf', 14)
-        run_txt = font.render("Run", True, (0,0,0),(255,255,255))
+        tempx, tempy = 260,260
+        temp = [encounter.player_pokemon, encounter.enemy]
+        for i in temp:
+            pygame.draw.rect(window, (245, 245, 245), (tempx, tempy, 200, 100))
+            name_txt = font.render(i.name, True, (0,0,0), (245, 245, 245))
+            lvl_txt = font.render("lvl {}".format(i.level), True, (0,0,0), (245, 245, 245))
+            status_txt = font.render(i.status.name, True, (0, 0, 0), (245, 245, 245))
+            pygame.draw.rect(window, (0,0,0), (tempx+5, tempy+50, 160,10), 3)
+            amount = int(i.hp/i.maxhp*160)
+            if amount >50:
+                colour = 9, 148, 37
+            elif amount >20:
+                colour = 250, 136, 15
+            else:
+                colour = 255, 0, 0
+            pygame.draw.rect(window, colour, (tempx + 5, tempy + 50, amount, 10))
+
+            window.blit(name_txt, (tempx+10,tempy+10))
+            window.blit(lvl_txt, (tempx + 200-50, tempy + 10))
+            window.blit(status_txt, (tempx + 10, tempy + 70))
+            tempx, tempy = 60,40
+        run_txt = font.render("Run", True, (25, 187, 212),(232, 65, 65))
         runrect = run_txt.get_rect()
-        runrect.center= (260,630)
-        run_btn = pygame.draw.rect(window, (255, 255, 255), (200, 600, 120, 60))
+        runrect.center= (270,650)
+        run_btn = pygame.draw.rect(window, (232, 65, 65), (210, 630, 120, 40))
         window.blit(run_txt, runrect)
 
-        catch_txt = font.render("Catch", True, (0, 0, 0), (255, 255, 255))
-        catch_rect = catch_txt.get_rect()
-        catch_rect.center = (450, 630)
-        catch_btn = pygame.draw.rect(window, (255, 255, 255), (430, 600, 120, 60))
-        window.blit(catch_txt, catch_rect)
+        bag_txt = font.render("Bag", True, (25, 187, 212), (232, 65, 65))
+        bag_rect = bag_txt.get_rect()
+        bag_rect.center = (100, 650)
+        bag_btn = pygame.draw.rect(window, (232, 65, 65), (40, 630, 120, 40))
+        window.blit(bag_txt, bag_rect)
+
+        party_txt = font.render("Party", True, (25, 187, 212), (232, 65, 65))
+        party_rect = party_txt.get_rect()
+        party_rect.center = (440, 650)
+        party_btn = pygame.draw.rect(window, (232, 65, 65), (400, 630, 110, 40))
+        window.blit(party_txt, party_rect)
         attacks = []
-        run_btn = pygame.draw.rect(window, (255, 255, 255), (200, 600, 120, 60))
-        window.blit(run_txt, runrect)
-
         p_hp = font.render("{}/{}".format(encounter.player_pokemon.hp,
                                           encounter.player_pokemon.maxhp), True, (46,46,46),(255,255,255))
         e_hp = font.render("{}/{}".format(encounter.enemy.hp, encounter.enemy.maxhp),
@@ -544,18 +613,23 @@ def UI_encounter(encounter):
         p_rect.center = (100, 180)
         window.blit(p_hp, p_rect)
         window.blit(e_hp, e_rect)
-        for i in  range(len(encounter.player_pokemon.attacks)):
+        for i in range(len(encounter.player_pokemon.attacks)):
             a = encounter.player_pokemon.attacks[i]
-            big_text = font.render(a.name, True, (0, 0, 0), (255, 255, 255))
-            lil_text = font2.render("{}    {}/{}".format(a.type, a.pp, a.max_pp), True, (0, 0, 0),
-                                 (255, 255, 255))
+            x = 140 + (i % 2) * 250
+            y = 480 + (i > 1) * 90
+            if a.pp == 0:
+                big_text = font.render(a.name, True, (0, 0, 0), (69,66,66))
+                lil_text = font2.render("{}    {}/{}".format(a.type, a.pp, a.max_pp), True, (255, 0, 0), (69, 66, 66))
+                pygame.draw.rect(window, (69, 66, 66), (x - 80, y - 30, 180, 70))
+            else:
+                big_text = font.render(a.name, True, (0, 0, 0), (255, 255, 255))
+                lil_text = font2.render("{}    {}/{}".format(a.type, a.pp, a.max_pp), True, (0, 0, 0), (255, 255, 255))
+                attacks.append((pygame.draw.rect(window, (255, 255, 255), (x - 80, y - 30, 180, 70)), a))
             text1Rect = big_text.get_rect()
             text2Rect = lil_text.get_rect()
-            x = 125 + (i%2)*250
-            y = 450 +(i>1)*90
             text1Rect.center = (x, y)
             text2Rect.center = (x, y+20)
-            attacks.append((pygame.draw.rect(window, (255, 255, 255), (x-75, y-30, 150, 70)), a))
+
             window.blit(big_text, text1Rect)
             window.blit(lil_text, text2Rect)
         '''
@@ -583,8 +657,9 @@ def UI_encounter(encounter):
         pos = pygame.mouse.get_pos()
         pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
         if run_btn.collidepoint(pos) and pressed1:
+            run = True
             break
-        if catch_btn.collidepoint(pos) and pressed1:
+        if bag_btn.collidepoint(pos) and pressed1:
             temp = encounter.catch()
             print(temp)
             if temp[:5] == 'Nice!':
@@ -592,7 +667,9 @@ def UI_encounter(encounter):
         for a in attacks:
             if a[0].collidepoint(pos) and pressed1:
                 encounter.play(a[1])
-
+    if not run:
+        if encounter.enemy not in encounter.player.inventory+ encounter.player.bag.pokemons:
+            encounter.xp_gain()
 
 
 if __name__ == '__main__':
@@ -600,7 +677,8 @@ if __name__ == '__main__':
     doctest.testmod()
     Location([('charizard',100, 1, 100)], "test_A.txt")
     l = Location([('charizard',100, 1, 0)], 'test_level.txt')
-    pygame.display.set_mode((l.width * TILE_LENGTH, l.height * TILE_LENGTH))
+    pygame.display.set_mode((WIDTH, HEIGHT))
+    window.fill((46, 46, 46))
     print(LOCATION)
     for id, location in LOCATION.items():
         for key, tile in location.exits.items():
@@ -608,11 +686,14 @@ if __name__ == '__main__':
     Asad = Player('Asad', l, l.start.right.down)
     s = POKEMON['pikachu']
     Asad.add_pokemon(Pokemon('pikachu', 5))
-    print_tile(l.start, True)
-    pygame.draw.circle(window, (30, 213, 230),(Asad.curr_tile.x+TILE_LENGTH//2, Asad.curr_tile.y+TILE_LENGTH//2),20)
+    print(l.height, l.width)
+    #print_tile(l.start, True, (WIDTH -l.width*40)//2,(HEIGHT-l.height*40)//2)
+    print_player(Asad)
+    pygame.draw.circle(window, (30, 213, 230),((WIDTH -l.width*40)//2+20,(HEIGHT-l.height*40)//2+20),20)
     pygame.display.update()
     encounter = None
     run = True
+
     #e = PVE_Encounter(Asad, Asad.curr_location)
     #print(e.catch())
     #UI_encounter(PVE_Encounter(Asad, Asad.curr_location))
@@ -626,26 +707,27 @@ if __name__ == '__main__':
 
 
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_a]:
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
             encounter = Asad.curr_tile.left.walk_to(Asad)
-        elif keys[pygame.K_d]:
+        elif keys[pygame.K_d]or keys[pygame.K_RIGHT]:
             encounter = Asad.curr_tile.right.walk_to(Asad)
-        elif keys[pygame.K_w]:
+        elif keys[pygame.K_w]or keys[pygame.K_UP]:
             encounter = Asad.curr_tile.up.walk_to(Asad)
-        elif keys[pygame.K_s]:
+        elif keys[pygame.K_s] or keys[pygame.K_DOWN]:
             encounter = Asad.curr_tile.down.walk_to(Asad)
-        window.fill((0, 0, 0))
+        window.fill((46,46,46))
         if curr != Asad.curr_location:
             curr = Asad.curr_location
-            pygame.display.set_mode((curr.width*TILE_LENGTH, curr.height*TILE_LENGTH))
-        print_tile(Asad.curr_location.start, True)
+            #pygame.display.set_mode((curr.width*TILE_LENGTH, curr.height*TILE_LENGTH))
+        print_player(Asad)
+        #aaaaaaprint_tile(Asad.curr_location.start, True, (WIDTH -Asad.curr_location.width*40)//2,(HEIGHT-Asad.curr_location.height*40)//2)
         pygame.draw.circle(window, (30, 213, 230),
-                           (Asad.curr_tile.x + TILE_LENGTH // 2, Asad.curr_tile.y + TILE_LENGTH // 2), 20)
+                           (Asad.curr_tile.x +20+ (WIDTH -Asad.curr_location.width*40)//2, Asad.curr_tile.y + 20+(HEIGHT-Asad.curr_location.height*40)//2), 20)
         pygame.display.update()
-        if encounter is not None:
+        if encounter is not None and Asad.main.hp>0:
             UI_encounter(encounter)
             encounter = None
-            pygame.display.set_mode((curr.width * TILE_LENGTH, curr.height * TILE_LENGTH))
+            #pygame.display.set_mode((curr.width * TILE_LENGTH, curr.height * TILE_LENGTH))
     pygame.quit()
     p = Pokemon('pikachu', 5)
     e = PVE_Encounter(p, 'a')
