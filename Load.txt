@@ -28,7 +28,7 @@ EOPL
 1,W,None
 2,N,None
 B,E,None
-*,I,Pokeball,1
+*,I,Poke ball,1
 EOD
 25,21,A
 000000000000000000000
