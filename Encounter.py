@@ -24,7 +24,7 @@ class PVE_Encounter:
             for i in range(pokemon[2]):
                 l.append(pokemon)
         pokemon = l[random.randint(0,len(l)-1)]
-        self.enemy = Pokemon(pokemon[0], pokemon[1], random.randint(pokemon[3],pokemon[4]), pokemon[5])
+        self.enemy = Pokemon(pokemon[0], None, random.randint(pokemon[3],pokemon[4]), pokemon[5])
     def _play(self):
         while self.game_on():
             print(self.player_pokemon.hp)

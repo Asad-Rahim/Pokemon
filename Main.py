@@ -32,12 +32,14 @@ pygame.display.set_caption('Pokemon')
 
 sprites = SpriteSheet.SpriteSheet('spritesheet.png', 1, 4)
 walk = SpriteSheet.SpriteSheet('PlayerSprite.png', 4, 4)
-
-
+front = SpriteSheet.SpriteSheet('front.png', 21, 31)
+back = SpriteSheet.SpriteSheet('back.png', 21, 31)
+frontShiny = SpriteSheet.SpriteSheet('front-shiny.png', 21, 31)
+backShiny = SpriteSheet.SpriteSheet('back-shiny.png', 21, 31)
 from Location import LoadSave, LoadSave, TILE_LENGTH
 from UI import init, btns
 save = LoadSave('Save.txt')
-init(window,WIDTH, HEIGHT,screen_w,screen_h, sprites, save)
+init(window,WIDTH, HEIGHT,screen_w,screen_h, [front,back, frontShiny,backShiny], save)
 from UI import ItemBagUI,InventoryUI, UI_encounter
 
 def print_screen(player):
@@ -323,13 +325,16 @@ if __name__ == '__main__':
         pygame.display.update()
         #encounter= PvP_Battle(Asad,Asad,1)
         if encounter is not None and Asad.main.hp > 0:
-            print('AAAAAAAAAAAAAAA')
             UI_encounter(encounter)
+            print(type(encounter))
             if isinstance(encounter, PvP_Battle):
                 print(encounter.game_on())
                 if encounter.game_on()[1] ==-1:
                     tile = encounter.enemy.curr_tile
                     tile.up.down =tile.left.right=tile.right.left=tile.down.up= tile.floor
+                else:
+                    for pokemon in encounter.enemy_player.bag.pokemons:
+                        pokemon.retore()
             if Asad.main.hp ==0:
                 Asad.main = encounter.player_pokemon
             encounter = None

@@ -27,6 +27,9 @@ class Player:
             self.bag.add_pokemon(pokemon)
             if self.main is None:
                 self.change_main(pokemon)
+    def heal(self):
+        for pokemon in self.bag.pokemons:
+            pokemon.restore()
     def change_main(self, pokemon):
         #pokemon must be in bag
         self.bag.pokemons[0], self.bag.pokemons[self.bag.pokemons.index(pokemon)]=\

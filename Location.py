@@ -85,6 +85,8 @@ class Location:
             return Wild_Tile(self.tileDict[text[i]][1]), i+1
         elif self.tileDict[text[i]][0] == 'N':
             return Normal_Tile(self.tileDict[text[i]][1]), i+1
+        elif self.tileDict[text[i]][0] == 'R':
+            return Restore_Tile(self.tileDict[text[i]][1]), i+1
         elif self.tileDict[text[i]][0] == 'I':
             t = Item_Tile(None, None, self.get_tile(self.tileDict[text[i]][2], 0, [])[0])
             if self.tileDict[text[i]][1] in item_tiles:
@@ -168,6 +170,21 @@ class Tile:
         player.curr_tile = self
     def draw(self,x,y,window,walk=None):
         pygame.draw.rect(window, self.colour, (x, y, TILE_LENGTH, TILE_LENGTH))
+class Restore_Tile(Tile):
+    def __init__(self, num, colour=None):
+        Tile.__init__(self,num)
+        if colour is None:
+            self.colour = 247, 94, 232
+        else:
+            self.colour = colour
+    def walk_to(self, player):
+        Tile.move_player(self, player)
+        player.heal()
+        player.dialogue = "Your party has been healed"
+        player.stance -=1
+        player.stopped = True
+    def print(self):
+        return 'B,{}'.format(self.num)
 class Other_Player_Tile(Tile):
     def __init__(self,num, player,tile,colour = None):
         Tile.__init__(self,num)
@@ -179,7 +196,7 @@ class Other_Player_Tile(Tile):
             self.colour = colour
         self.other_player = player
     def walk_to(self, player):
-        UI_encounter(PvP_Battle(player, self.other_player, self.other_player.diff))
+        return PvP_Battle(player, self.other_player, self.other_player.diff)
     def print(self):
         return "T,{}/{}".format(self.other_player.name, self.floor.print())
     def draw(self, x, y, window,walk):
@@ -235,15 +252,6 @@ class Item_Tile(Tile):
     """
     Tile that holds an Item. If the user wants to walk on this tile and an item is on it, they will pick up the item and
     stay on that tile. Then this tile will become like a Normal Tile
-
-    def __int__(self, tile,item, colour = None):
-        self.tile = tile
-        if colour is None:
-            self.colour = 237, 28, 46
-        else:
-            self.colour = colour
-        self.got = False
-        self.item = item
     """
     def __init__(self, num, item,tile, colour = None):
         Tile.__init__(self,num)
@@ -257,9 +265,11 @@ class Item_Tile(Tile):
 
     def walk_to(self, player):
         if not self.got:
+            Tile.move_player(self, player)
             player.bag.add_item(self.item)
             player.dialogue = "You found a {}".format(self.item.name)
             player.stopped = True
+            player.stance-=1
             print("You found a {}".format(self.item.name))
             self.got = True
             self.colour =  self.next_tile.colour

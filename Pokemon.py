@@ -7,21 +7,43 @@ ATTACKS = {'iron tail': [30, 15, 0.0, 70, 100, 'Normal', ('', 100)],
            'thunder': [65, 5, 0.2, 80, 80, 'Electrike', ('', 100)],
            'flame thrower': [40, 15, 0.0, 70, 95, 'Fire', ('Burned', 50)],
            'rock crush': [55, 5, 0.1, 40, 70, 'Ground', ('', 100)]}
-POKEMON = {'pikachu': [120, 'Electrike', ('Raichu', 20), 190, 0, 'iron tail', 'thunder', 'rock crush'],
-           'charizard': [170, 'Fire', ('None', 0), 45, 4, 'flame thrower', 'rock crush']}
+POKEMON = {'pikachu': [120, 'Electrike', ('Raichu', 20), 190, 24, 'iron tail', 'thunder', 'rock crush'],
+           'charizard': [170, 'Fire', ('None', 0), 45, 5, 'flame thrower', 'rock crush']}
+#pokeomon = {index: ["name", "type1/type2", hp, attack, defence, sp atk, sp def, speed, index of evolution, evo lvl, {lvl: [attack],...}]}
+p2= {1:["Bulbasaur", "Grass/Poison", 45, 49, 49, 65, 65, 45, 2,16, {1: ("Tackle", "Growl"), 3: ("Vine Whip")}],
+    2:["Ivysaur", "Grass/Poison", 45, 49, 49, 65, 65, 45, 3,32, {1: ["Tackle", "Growl"], 3: ["Vine Whip"]}]}
 STATUSES ={'Burned': [-1,-1, 10, False, 100,"was hurt by it's burn."],
            '':[-1,-1,0,False,100,'No status effect'],
            'Confused':[2,5,7,True, 60, "hurt itself in it's confusion."],
            'Fainted':[-1,-1,0,True, 100, "has fainted."]}
+class PokemonNode:
+    def __init__(self, index, name, type, stats):
+        self.index, self.name, self.type= index, name, type
+        self.hp, self.atk, self.deff, self.sAtk, self.sDeff, self.spd = stats
+        self.stats= stats
+        self.out ={}
+    def connect(self, node, lvl):
+        if lvl in self.out:
+            self.out[lvl].append(node)
+        else:
+            self.out[lvl] = [node]
+    def make(self, lvl):
+        return Pokemon(self, lvl)
 class Pokemon:
     """
     Pokemon that can fight, level up and be potentially caught
     """
+    def __init__(self, pNode, lvl) -> None:
+        self.name, self.maxhp, self.hp, self.num = pNode.name, pNode.hp, pNode.hp, pNode.index-1
+        self.level=1
+        self.atk, self.deff, self.sAtk, self.sDeff, self.spd= pNode.stats[1:]
+        while self.level<lvl:
+            self.level_up()
+        self.shiny = random.randint(1,SHINY) ==1
     def __init__(self, name, num,level,  catch_rate=-1):
         self.name = name
         self.shiny = random.randint(1,SHINY) ==1
         self.level = level
-        self.sprite_num = num
         pokemon = POKEMON[name]
         self.hp =pokemon[0]+(level-1)*2
         self.maxhp = self.hp
@@ -128,7 +150,11 @@ class Pokemon:
         return extra
     def __str__(self):
         return "{},{},{},{},{},{},{},{},{}".format(self.name, self.level, self.hp, self.maxhp,self.attack_str(),
-                                                        self.xp, self.status.name, self.shiny, self.sprite_num)
+                                                        self.xp, self.status.name, self.shiny, self.num)
+    def restore(self):
+        self.hp = self.maxhp
+        for attack in self.attacks:
+            attack.pp= attack.max_pp
     def attack_str(self):
         s = ''
         for attack in self.attacks:
