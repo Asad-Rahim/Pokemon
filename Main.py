@@ -2,17 +2,18 @@ import pygame, ctypes
 from Items import ITEMS
 import SpriteSheet
 
-ATTACKS = {'iron tail': [30, 15, 0.0, 70, 100, 'Normal', ('', 100)],
-           'thunder': [65, 5, 0.2, 80, 80, 'Electrike', ('', 100)],
-           'flame thrower': [40, 15, 0.0, 70, 95, 'Fire', ('Burned', 50)],
-           'rock crush': [55, 5, 0.1, 40, 70, 'Ground', ('', 100)]}
+ATTACKS = {'iron tail': [100, 15, 0.0, 70, 75, 'Normal', ('', 100),0],
+           'thunder': [110, 5, 0.2, 80, 70, 'Electrike', ('', 100),1],
+           'flame thrower': [90, 15, 0.0, 70, 100, 'Fire', ('Burned', 50),1],
+           'rock crush': [70, 5, 0.1, 40, 100, 'Ground', ('', 100),0]}
 POKEMON = {'pikachu': [120, 'Electrike', ('Raichu', 20), 190, 0, 'iron tail', 'thunder', 'rock crush'],
            'charizard': [170, 'Fire', ('None', 0), 45, 4, 'flame thrower', 'rock crush']}
-
+p2= {1:["Bulbasaur", "Grass/Poison", 45, 49, 49, 65, 65, 45, 2,16, {1: ("Tackle", "Growl"), 3: ("Vine Whip")}],
+    2:["Ivysaur", "Grass/Poison", 45, 49, 49, 65, 65, 45, 3,32, {1: ["Tackle", "Growl"], 3: ["Vine Whip"]}]}
 
 from Player import Player
 from Encounter import PVE_Encounter, PvP_Battle
-from Pokemon import Pokemon, Attack, Status
+from Pokemon import Pokemon, Attack, Status, PokemonNode
 
 
 # WIDTH, HEIGHT= 550, 600
@@ -326,15 +327,15 @@ if __name__ == '__main__':
         #encounter= PvP_Battle(Asad,Asad,1)
         if encounter is not None and Asad.main.hp > 0:
             UI_encounter(encounter)
-            print(type(encounter))
-            if isinstance(encounter, PvP_Battle):
-                print(encounter.game_on())
-                if encounter.game_on()[1] ==-1:
-                    tile = encounter.enemy.curr_tile
-                    tile.up.down =tile.left.right=tile.right.left=tile.down.up= tile.floor
-                else:
-                    for pokemon in encounter.enemy_player.bag.pokemons:
-                        pokemon.retore()
+            # print(type(encounter))
+            # if isinstance(encounter, PvP_Battle):
+            #     print(encounter.game_on())
+            #     if encounter.game_on()[1] ==-1:
+            #         tile = encounter.enemy.curr_tile
+            #         tile.up.down =tile.left.right=tile.right.left=tile.down.up= tile.floor
+            #     else:
+            #         for pokemon in encounter.enemy_player.bag.pokemons:
+            #             pokemon.retore()
             if Asad.main.hp ==0:
                 Asad.main = encounter.player_pokemon
             encounter = None

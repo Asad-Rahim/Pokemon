@@ -1,13 +1,56 @@
-import random
+import random, math, copy
 MAX_LEVEL=100
 SHINY = 4096
-WEAKNESSES ={'Fire':['Water'], 'Electrike':['Ground'], 'Normal': [],'Ground': []}
-STRENGTHS ={'Fire':['Grass', 'Flying'], 'Electrike':[], 'Normal':[],'Ground': []}
-ATTACKS = {'iron tail': [30, 15, 0.0, 70, 100, 'Normal', ('', 100)],
-           'thunder': [65, 5, 0.2, 80, 80, 'Electrike', ('', 100)],
-           'flame thrower': [40, 15, 0.0, 70, 95, 'Fire', ('Burned', 50)],
-           'rock crush': [55, 5, 0.1, 40, 70, 'Ground', ('', 100)]}
-POKEMON = {'pikachu': [120, 'Electrike', ('Raichu', 20), 190, 24, 'iron tail', 'thunder', 'rock crush'],
+USELESS = {'Fire':[], 'Water':[],'Electric':["Ground"],'Grass':[],
+    'Ice':[],'Fighting':['Ghost'],'Poison':['Steel'],'Ground': ['Flying'],
+    'Flying':[],'Psychic':['Dark'],'Bug':[],'Rock':[], 'Ghost':['Normal'],
+    'Dragon':['Fairy'],'Dark':[],'Steel':[],'Fairy':[],
+    'Normal':['Ghost'], 'None':[]}
+WEAKNESSES ={'Fire':['Fire', 'Water', 'Rock', 'Dragon'], 
+            'Water':['Water', 'Grass', 'Dragon'],
+            'Electric':['Electric', 'Grass', 'Dragon'],
+            'Grass':['Fire', 'Grass', 'Poison', 'Flying', 'Bug', 'Dragon', 'Steel'],
+            'Ice':['Fire', 'Water', 'Ice', 'Steel'],
+            'Fighting':['Poison', 'Flying','Psychic', 'Bug', 'Fairy'],
+            'Poison':['Poison', 'Ground', 'Rock', 'Ghost'],
+            'Ground': ['Ice', 'Bug'],
+            'Flying':['Electric','Rock', 'Steel'],
+            'Psychic':['Psychic', 'Steel'],
+            'Bug':['Fire', 'Fighting', 'Poison','Flying', 'Ghost', 'Steel', 'Fairy'],
+            'Rock':['Fighting', 'Ground', 'Steel'], 
+            'Ghost':['Dark'],
+            'Dragon':['Steel'],
+            'Dark':['Fighting', 'Dark', 'Fairy'],
+            'Steel':['Fire', 'Water', 'Electric', 'Steel'],
+            'Fairy':['Fire', 'Poison', 'Steel'],
+            'Normal':['Rock', 'Steel'], 'None':[]}
+STRENGTHS ={'Fire':['Grass', 'Ice', 'Bug', 'Steel'], 
+            'Water':['Fire', 'Ground', 'Rock'],
+            'Electric':['Water', 'Flying'],
+            'Grass':['Water', 'Ground', 'Rock'],
+            'Ice':['Grass', 'Ground', 'Flying'],
+            'Fighting':['Normal', 'Ice', 'Rock', 'Dark', 'Steel'],
+            'Poison':['Grass', 'Fairy'],
+            'Ground': ['Fire', 'Electric', 'Poison', "Rock", "Steel"],
+            'Flying':['Grass', 'Poison', 'Bug'],
+            'Psychic':['Fighting', 'Poison'],
+            'Bug':['Grass', 'Psychic', 'Dark'],
+            'Rock':['Fire', 'Ice', 'Flying', 'Bug'], 
+            'Ghost':['Ghost', 'Psychic'],
+            'Dragon':['Dragon'],
+            'Dark':['Psychic', 'Ghost'],
+            'Steel':['Ice', 'Rock', 'Fairy'],
+            'Fairy':['Fighting', 'Dragon', 'Dark'],
+            'Normal':[], 'None':[]}
+ATTACKS = {'iron tail': [100, 15, 0.0, 1, 75, 'Normal', ('', 100),0],
+           'thunder': [110, 10, 0.2, 1, 70, 'Electric', ('', 100),1],
+           'Flamethrower': [90, 15, 0.0, 1, 100, 'Fire', ('Burned', 50),1],
+           'rock crush': [70, 5, 0.1, 0, 100, 'Ground', ('', 100),0],
+           'Scratch': [40, 35, 0, 1, 100, 'Normal', ('', 100),0],
+           'Dragon Breath': [60, 20, 0, 1, 100, 'Dragon', ('Paralyzed', 30),0],
+           'Fire Fang': [65, 15, 0, 1, 95, 'Fire', ("Burned",10),0],
+           'Ember': [40, 25, 0, 1, 100, 'Fire', ('Burned', 10),1]}
+POKEMON = {'pikachu': [120, 'Electric', ('Raichu', 20), 190, 24, 'iron tail', 'thunder', 'rock crush'],
            'charizard': [170, 'Fire', ('None', 0), 45, 5, 'flame thrower', 'rock crush']}
 #pokeomon = {index: ["name", "type1/type2", hp, attack, defence, sp atk, sp def, speed, index of evolution, evo lvl, {lvl: [attack],...}]}
 p2= {1:["Bulbasaur", "Grass/Poison", 45, 49, 49, 65, 65, 45, 2,16, {1: ("Tackle", "Growl"), 3: ("Vine Whip")}],
@@ -15,70 +58,122 @@ p2= {1:["Bulbasaur", "Grass/Poison", 45, 49, 49, 65, 65, 45, 2,16, {1: ("Tackle"
 STATUSES ={'Burned': [-1,-1, 10, False, 100,"was hurt by it's burn."],
            '':[-1,-1,0,False,100,'No status effect'],
            'Confused':[2,5,7,True, 60, "hurt itself in it's confusion."],
-           'Fainted':[-1,-1,0,True, 100, "has fainted."]}
+           'Fainted':[-1,-1,0,True, 100, "has fainted."],
+           'Paralyzed':[-1,-1,0,True,50,"can't move"]}
+p1= {}
 class PokemonNode:
-    def __init__(self, index, name, type, stats):
+    def __init__(self, index, name, type, stats, moves):
         self.index, self.name, self.type= index, name, type
         self.hp, self.atk, self.deff, self.sAtk, self.sDeff, self.spd = stats
         self.stats= stats
         self.out ={}
+        self.attacks =[]
+        p1[index] = self
+        for move, lvl in moves:
+            self.connect(Attack.make(self,move),lvl)
     def connect(self, node, lvl):
         if lvl in self.out:
             self.out[lvl].append(node)
         else:
             self.out[lvl] = [node]
+        if isinstance(node, Attack):
+            self.attacks.append(node)
     def make(self, lvl):
-        return Pokemon(self, lvl)
+        print(self.index, lvl)
+        return Pokemon(self.index,lvl)
 class Pokemon:
     """
     Pokemon that can fight, level up and be potentially caught
     """
-    def __init__(self, pNode, lvl) -> None:
-        self.name, self.maxhp, self.hp, self.num = pNode.name, pNode.hp, pNode.hp, pNode.index-1
-        self.level=1
+    def __init__(self, num, lvl, catchRate=0) -> None:
+        pNode = p1[num]
+        self.name, self.maxhp, self.hp, self.num, self.type = pNode.name, pNode.hp, pNode.hp, pNode.index-1, pNode.type
+        self.level=0
+        self.catch_rate=catchRate
         self.atk, self.deff, self.sAtk, self.sDeff, self.spd= pNode.stats[1:]
-        while self.level<lvl:
-            self.level_up()
-        self.shiny = random.randint(1,SHINY) ==1
-    def __init__(self, name, num,level,  catch_rate=-1):
-        self.name = name
-        self.shiny = random.randint(1,SHINY) ==1
-        self.level = level
-        pokemon = POKEMON[name]
-        self.hp =pokemon[0]+(level-1)*2
-        self.maxhp = self.hp
-        self.type =pokemon[1]
-        self.evolution = pokemon[2]
-        self.attacks = []
-        if catch_rate ==-1:
-            self.catch_rate = pokemon[3]
-        else:
-            self.catch_rate = catch_rate
-        if num is None:
-            self.num = pokemon[4]
-        else:
-            self.num = num
-        self.set_attacks(pokemon[5:])
+        self.attacks =[]
+        i = 0
+        self.xp= 0
+        self.next_level=10
+        self.node = pNode
         self.status = Status('')
-        self.xp = 0
+        while self.level<lvl:
+            nodes =self.level_up()
+            if nodes !=[]:
+                if isinstance(nodes[-1], PokemonNode):
+                    self.evolve(nodes[-1])
+                    i+=self.learn(nodes[:-1], i)
+                else:
+                    i+=self.learn(nodes, i)
+        self.shiny = random.randint(1,SHINY) ==1
+    def replace_attack(self, old_attack, new_attack):
+        for attack in range(len(self.attacks)):
+            if self.attacks[attack] == old_attack:
+                self.attacks[attack] = new_attack
+    def restore_stats(self):
+        self.atk, self.deff, self.sAtk, self.sDeff, self.spd = self.stats
+    def level_up(self):
+        self.level+=1
+        self.atk+= self.atk/50
+        self.deff+= self.deff/50
+        self.sAtk+= self.sAtk/50
+        self.sDeff+= self.sDeff/50
+        self.spd+= self.spd/50
+        hp= self.maxhp/50
+        self.maxhp+=hp
+        self.hp+=hp
         self.next_level = self.level**3
+        self.stats = [self.atk, self.deff, self.sAtk, self.sDeff, self.spd]
+        if self.level in self.node.out:
+            return self.node.out[self.level]
+        return []
+    def evolve(self, node):
+        new = node.make(self.level)
+        self.hp += new.maxHp- self.maxhp
+        self.name, self.maxhp, self.num, self.atk, self.deff, self.sAtk, \
+            self.sDeff, self.spd=new.name, new.maxHp, new.num, new.atk, new.deff, new.sAtk, new.sDef, new.spd
+        
+    def learn(self, attacks, index):
+        for attack in attacks:
+            if index>=len(self.attacks):
+                self.attacks.append(copy.copy(attack))
+            else:
+                self.attacks[index] = copy.copy(attack)
+            index+=1
+            if index==4:
+                index =0
+        return index
+    # def __init__(self, name, num,level,  catch_rate=-1):
+    #     self.name = name
+    #     self.shiny = random.randint(1,SHINY) ==1
+    #     self.level = level
+    #     pokemon = POKEMON[name]
+    #     self.hp =pokemon[0]+(level-1)*2
+    #     self.maxhp = self.hp
+    #     self.type =pokemon[1]
+    #     self.evolution = pokemon[2]
+    #     self.attacks = []
+    #     if catch_rate ==-1:
+    #         self.catch_rate = pokemon[3]
+    #     else:
+    #         self.catch_rate = catch_rate
+    #     if num is None:
+    #         self.num = pokemon[4]
+    #     else:
+    #         self.num = num
+    #     self.set_attacks(pokemon[5:])
+    #     self.status = Status('')
+    #     self.xp = 0
+    #     self.next_level = self.level**3
     def __repr__(self):
         return self.name
     def add_xp(self, xp):
         self.xp += xp
-        evolution = False
+        nodes = []
         while self.xp >= self.next_level:
             self.xp -= self.next_level
-            evolution = evolution or self.level_up()
-        return evolution
-        if evolution:
-            ans = input("Do you want {} to evolve into {}?\n'Y' for yes, 'N' for no")
-            if ans == 'Y':
-                pokemon = Pokemon(self.evolution[0], self.evolution[1],self.level)
-                self.swap_pokemon(pokemon)
-    def evolve_into(self, other):
-        self.name,self.maxhp, self.hp= other.name,other.maxhp, self.hp+(other.maxhp-self.maxhp)
-        self.status = Status('')
+            nodes +=self.level_up()
+        return nodes
     def set_attacks(self, attacks=None):
         if attacks is None:
             for attack in self.attacks:
@@ -88,15 +183,15 @@ class Pokemon:
         for attack in attacks:
             a = ATTACKS[attack]
             self.attacks.append(Attack(attack, a[0]+(self.level-1)*4//3, a[1], a[2], a[3], a[4],a[5],a[6]))
-    def level_up(self):
-        if self.level == MAX_LEVEL:
-            return False
-        self.level +=1
-        self.set_attacks()
-        self.next_level = self.level**3
-        if self.level == self.evolution[1]:
-            return True
-        return False
+    # def level_up(self):
+    #     if self.level == MAX_LEVEL:
+    #         return False
+    #     self.level +=1
+    #     self.set_attacks()
+    #     self.next_level = self.level**3
+    #     if self.level == self.evolution[1]:
+    #         return True
+    #     return False
     def set_hp(self, amount):
         if self.hp- amount >self.maxhp:
             self.hp = self.maxhp
@@ -106,6 +201,15 @@ class Pokemon:
             self.hp = self.hp - amount
         if self.hp == 0:
             self.status = Status('Fainted')
+    def dmgMulti(self, victim, attack):
+        num =1
+        types = victim.type.split("/")
+        for t in types:
+            if t in WEAKNESSES[attack.type]:
+                num/2
+            if t in STRENGTHS[attack.type]:
+                num*2
+        return num
     def attack(self, victim, attack):
         """
         use attack on victim. Doesn't nessecarly mean damage victim. Also return a descriotion of what happened.
@@ -122,16 +226,13 @@ class Pokemon:
                     self.set_hp(attack.damage)
                     return (extra +' and recovered some hp.',attack.damage),
                 else:
-                    if attack.type in WEAKNESSES[attack.type]:
-                        damage = attack.damage * 3 // 2
-                        s='.\nIt was super effective!'
-                    elif attack.type in STRENGTHS[attack.type]:
-                        damage = attack.damage * 2 // 3
-                        s='.\nIt was not very effective...'
+                    if attack.cat == 0:
+                        damage = (2*self.level/5+2)*attack.damage*self.atk/victim.deff/50 +2
                     else:
-                        damage = attack.damage
-                    victim.set_hp(damage)
-                    sd = int(damage*attack.self_damage)
+                        damage = (2*self.level/5+2)*self.sAtk/victim.sDeff/50 +2
+                    damage*= self.dmgMulti(victim, attack) 
+                    victim.set_hp(math.trunc(damage))
+                    sd = math.trunc(damage*attack.self_damage)
                     if sd != 0:
                         s = '.\n{} was hit with recoil during the attack'.format(self.name) +s
                         self.set_hp(sd)
@@ -149,42 +250,71 @@ class Pokemon:
             extra += '\n{} {}'.format(self.name, self.status.description)
         return extra
     def __str__(self):
-        return "{},{},{},{},{},{},{},{},{}".format(self.name, self.level, self.hp, self.maxhp,self.attack_str(),
-                                                        self.xp, self.status.name, self.shiny, self.num)
+        return "{},{},{},{},{},{},{}{}".format(self.name, self.level, self.hp,
+                                                        self.xp, self.status.name, self.shiny, self.node.index, self.attack_str())
     def restore(self):
         self.hp = self.maxhp
+        self.status = Status('')
+        self.restore_stats()
         for attack in self.attacks:
             attack.pp= attack.max_pp
     def attack_str(self):
-        s = ''
+        if self.attacks == []:
+            return ''
+        s = ','
         for attack in self.attacks:
             s+= str(attack)+','
         return s[:-1]
-    def swap_pokemon(self, new):
-        return
-
+    def attack_spd(self, attack):
+        if attack.priority == 0:
+            return math.trunc(self.spd*0.25)
+        elif attack.priority == 2:
+            return math.trunc(self.spd*2)
+        return self.get_spd()
+    def get_hp(self):
+        return math.trunc(self.hp)
+    def get_maxHp(self):
+        return math.trunc(self.maxhp)
+    def get_atk(self):
+        return math.trunc(self.atk)
+    def get_def(self):
+        return math.trunc(self.deff)
+    def get_sAtk(self):
+        return math.trunc(self.sAtk)
+    def get_sDef(self):
+        return math.trunc(self.sDeff)
+    def get_spd(self):
+        return math.trunc(self.spd)
 class Attack:
     '''
     name: name of attack
     damage: damage of attack to victim
     pp: how many time attack can be used
     self_damage: perctange of damage that gets inflicted onto user
-    speed: speed of attack
+    priorty: 0 means low priority, 2 means always go high priorty and 1 is normal
     accuracy: chance attack hits
     status: tuple of what status is possible from being hit from this attack
     and what is the likelyhood of the status working
+    cat: 0 if the attack is phsyical and 1 if the attack is special
     '''
-    def __init__(self,name, damage, pp, self_damage, speed,accuracy,type, status):
+    def __init__(self,name, damage, pp, self_damage, speed,accuracy,type, status, cat):
         self.name = name
         self.damage = damage
         self.pp =self.max_pp= pp
-        self.speed = speed
+        self.priority = speed
         self.type = type
         self.accuracy = accuracy
         self.self_damage = self_damage
         self.status = status[0], status[1]
+        self.cat = cat
+    def make(self, name, pp=None):
+        a = ATTACKS[name]
+        atk =Attack(name, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7])
+        if pp is not None:
+            atk.pp= pp
+        return atk
     def __str__(self):
-        return "({}/{}/{})".format(self.name, self.damage, self.pp)
+        return "({}/{})".format(self.name, self.pp)
 class Status:
     '''
     The status of a pokemon
@@ -217,4 +347,15 @@ class Status:
         self.curr_turn +=1
         return self.damage, not self.stop
 
-
+bul = PokemonNode(1, p2[1][0], p2[1][1], p2[1][2:8],[])
+ivy = PokemonNode(2, p2[2][0], p2[2][1], p2[2][2:8],[])
+ven = PokemonNode(3,"Venusaur", "Grass/Poison", [80,82,83,100,100,80],[("iron tail",1),("thunder",1)])
+ch = PokemonNode(5, "Charmeleon", "Fire",[58,64,58,80,65,80],[("Scratch",1),("Ember",1),("Dragon Breath",12), ("Fire Fang",19)])
+PokemonNode(4, "Charmander", "Fire",[39,52,43,60,50,65],[("Scratch",1),("Ember",4),("Dragon Breath",12)]).connect(ch,16)
+ch.connect(PokemonNode(6, "Charizard", "Fire/Flying",[78,84,78,109,85,100],[("Scratch",1),("Ember",1),("Dragon Breath",12), ("Fire Fang",19), ("Flamethrower",30)]),36)
+war= PokemonNode(8,"Wartortle", "Water", [59,63,80,65,80,58],[])
+PokemonNode(7,"Squirtle", "Water", [44,48,65,50,64,43],[("Tackle",1), ("Water Gun",3), ("Rapid Spin", 9)]).connect(war,16)
+bul.connect(ivy, 16)
+list = ATTACKS["iron tail"]
+bul.connect(Attack("iron tail", list[0], list[1], list[2], list[3], list[4], list[5], list[6], list[7]), 1)
+print(bul.make(1), ivy.make(16), ch.make(30))

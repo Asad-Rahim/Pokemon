@@ -50,9 +50,9 @@ class Ball(Item):
 class MasterBall(Ball):
     def use(self, pokemon):
          return 4
-ITEMS = {'Poke ball': Ball('Poke ball', 1, 'Used to catch pokemon.'),
-         'Ultra ball': Ball('Ultra ball', 1.25, 'Used to catch pokemon.'),
-         'Great ball': Ball('Great ball', 1.125, 'Used to catch pokemon.'),
-         'Master ball': MasterBall('Master ball', 1, 'Used to immediatly catch any pokemon.'),
+ITEMS = {'Poke ball': Ball('Poke ball', 1, 'Used to catch wild pokemon.'),
+         'Ultra ball': Ball('Ultra ball', 1.25, 'Used to catch wild pokemon.'),
+         'Great ball': Ball('Great ball', 1.125, 'Used to catch wild pokemon.'),
+         'Master ball': MasterBall('Master ball', 1, 'Can immediatly catch any wild pokemon.'),
          'Full Restore': Healables('Full Restore', None, 0, 'Cure all status effects and fully heal pokemon.', True,
                                    True)}

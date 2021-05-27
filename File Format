@@ -3,7 +3,7 @@ List of Party Pokemon:[Pokemon Name,Pokemon level,Pokemon Hp,Max Pokemon Hp,(Att
 List of Inventory Pokemon
 List of All Items:(Item name,nummber of items),(,)
 updated locations: ex.
-pikachu,100,1,100,0:name,spawn rate%,min level,max level
+pikachu,100,1,100,0:index num,spawn rate%,min level,max level,catch rate
 rest of pokemon
 EOPL
 1,W,None

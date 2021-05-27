@@ -23,7 +23,7 @@ class Location:
         while text != "EOPL\n":
             t = text.split(",")
             t[-1] = t[-1][:-1]
-            for i in range(1, len(t)):
+            for i in range(len(t)):
                 t[i] = int(t[i])
             self.pokemon.append(tuple(t))
             text = f.readline()
@@ -97,6 +97,7 @@ class Location:
         elif self.tileDict[text[i]][0] == 'T':
             self.trainers[self.tileDict[text[i]][1]].curr_location= self
             floor = self.get_tile(self.tileDict[text[i]][2],0,item_tiles)[0]
+            print(floor.print())
             t = Other_Player_Tile(self.tileDict[text[i]][1],self.trainers[self.tileDict[text[i]][1]], floor)
             self.trainers[self.tileDict[text[i]][1]].curr_tile = t
             return t, i+1
@@ -149,7 +150,7 @@ class Location:
                 tiles+='\n'
         s = ''
         for pokemon in self.pokemon:
-            s += '{},{},{},{},{},{}\n'.format(pokemon[0],pokemon[1],pokemon[2],pokemon[3],pokemon[4],pokemon[5])
+            s += '{},{},{},{},{}\n'.format(pokemon[0],pokemon[1],pokemon[2],pokemon[3],pokemon[4])
         s += "EOPL\n"
         for key, item in d.items():
             s += "{},{}".format(item, key)+'\n'
@@ -184,7 +185,7 @@ class Restore_Tile(Tile):
         player.stance -=1
         player.stopped = True
     def print(self):
-        return 'B,{}'.format(self.num)
+        return 'R,{}'.format(self.num)
 class Other_Player_Tile(Tile):
     def __init__(self,num, player,tile,colour = None):
         Tile.__init__(self,num)
@@ -322,7 +323,7 @@ class LoadSave:
         i =0
         txt = f.readline().split(',')
         while txt[0] != 'EOPLAYERS\n': 
-            playerName, playerStance, pdiff = txt[0], int(txt[1]), int(txt[2][:-1])
+            playerName, playerCash,playerStance, pdiff = txt[0], int(txt[1]),int(txt[2]), int(txt[3][:-1])
             txt = f.readline()
             party= []
             if "]" in txt:
@@ -346,7 +347,7 @@ class LoadSave:
                     player_items[ITEMS[info[0]]] = int(info[1])
             txt = f.readline().split(',')
             p = Player(playerName,None,None)
-            p.name, p.stance, p.diff = playerName, playerStance, pdiff
+            p.name, p.stance, p.diff, p.cash = playerName, playerStance, pdiff, playerCash
             p.bag.pokemons = party
             if len(party) > 0:
                 p.change_main(party[0])
@@ -372,22 +373,21 @@ class LoadSave:
 
     def readPokemon(self, text):
         info = text[1:].split(",")
-        pokemon = Pokemon(info[0], int(info[-1]), int(info[1]))
-        pokemon.hp, pokemon.maxhp = int(info[2]), int(info[3])
-        pokemon.status = Status(info[-3])
-        pokemon.shiny = bool(info[-2])
-        pokemon.xp = int(info[-4])
+        pokemon = Pokemon(int(info[6]), int(info[1]))
+        pokemon.hp= float(info[2])
+        pokemon.xp = int(info[3])
+        pokemon.status = Status(info[4])
+        pokemon.shiny = bool(info[5])
+        
         pokemon.attacks = []
-        for potentialAttacks in info[4:-4]:
+        for potentialAttacks in info[7:]:
             if potentialAttacks[0] == '(':
                 pokemon.attacks.append(self.readAttack(potentialAttacks))
         return pokemon
 
     def readAttack(self, text):
         info = text[1:-1].split("/")
-        a = ATTACKS[info[0]]
-        attack = Attack(info[0], int(info[1]), int(a[1]), float(a[2]), int(a[3]), int(a[4]), a[5], a[6])
-        attack.pp = int(info[2])
+        attack = Attack.make(self, info[0], int(info[1]))
         return attack
 
     def save(self, player):

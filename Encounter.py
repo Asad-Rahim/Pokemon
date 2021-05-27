@@ -24,7 +24,7 @@ class PVE_Encounter:
             for i in range(pokemon[2]):
                 l.append(pokemon)
         pokemon = l[random.randint(0,len(l)-1)]
-        self.enemy = Pokemon(pokemon[0], None, random.randint(pokemon[3],pokemon[4]), pokemon[5])
+        self.enemy = Pokemon(pokemon[0], random.randint(pokemon[2],pokemon[3]))
     def _play(self):
         while self.game_on():
             print(self.player_pokemon.hp)
@@ -53,16 +53,31 @@ class PVE_Encounter:
             s = "{} threw a {}. But {} broke out".format(self.player, attack.name, self.enemy.name)
             s += self.enemy.attack(self.player_pokemon, en)
             return s
-        if en.speed > attack.speed:
-            print(self.enemy.attack(self.player_pokemon, en))
-            if self.game_on()[0]==0:
-                print(self.player_pokemon.attack(self.enemy, attack))
+        s= [['',None],['', None]]
+        if self.enemy.attack_spd(en) > self.player_pokemon.attack_spd(attack):
+            s[0][0]=self.enemy.attack(self.player_pokemon, en)
+            if self.game_on()[0]==0 and self.game_on()[1]==0:
+                s[1][0]=self.player_pokemon.attack(self.enemy, attack)
+            elif self.game_on()[1]==1:
+                s[1][0]= "{} has fainted".format(self.enemy.name)
+            else:
+                s[1][0]= "{} has fainted".format(self.player_pokemon.name)
+            s[1][1] = self.enemy
+            s[0][1] = self.player_pokemon
         else:
-            print(self.player_pokemon.attack(self.enemy, attack))
-            if self.game_on()[0]==0:
-                print(self.enemy.attack(self.player_pokemon, en))
-        print("{} health:{}\t{} health:{}".format(self.player_pokemon.name, self.player_pokemon.hp,
-                                                          self.enemy.name, self.enemy.hp))
+            s[0][0]=self.player_pokemon.attack(self.enemy, attack)
+            if self.game_on()[0]==0 and self.game_on()[1]==0:
+                s[1][0]=self.enemy.attack(self.player_pokemon, en)
+            elif self.game_on()[1]==1:
+                s[1][0]= "{} has fainted".format(self.enemy.name)
+            else:
+                s[1][0]= "{} has fainted".format(self.player_pokemon.name)
+            s[0][1] = self.enemy
+            s[1][1] = self.player_pokemon
+        print(s)
+        print("{} health:{}\t{} health:{}".format(self.player_pokemon.name, self.player_pokemon.get_hp(),
+                                                          self.enemy.name, self.enemy.get_hp()))
+        return s
     def game_on(self):
         '''
         return an int based on what state the game is in:
@@ -71,7 +86,7 @@ class PVE_Encounter:
         -1= all pokemon have fainted 
         3= enemy has been caught
         '''
-        en = self.enemy.hp==0
+        en = self.enemy.get_hp()==0
         if self.caught:
             en = 3
         return check(self.player,self.player_pokemon), en
@@ -97,37 +112,29 @@ class PVE_Encounter:
     def xp_gain(self, low=90, high=110):
         xp = self.enemy.level*random.randint(low,high)
         xp_per = xp//len(self.used)
+        all = []
         for pokemon in self.used:
             level = pokemon.level
             evolve = pokemon.add_xp(xp_per)
-            print("{} got {} xp for the battle".format(pokemon.level, xp_per))
+            s= "{} got {} xp for the battle".format(pokemon.name, xp_per)
             if pokemon.level !=level:
-                print("{} grew to level {}".format(pokemon.name, pokemon.level))
-            if evolve:
-                ans = input("Do you want {} to evolve into {}?\n'Y' for yes, 'N' for no")
-                if ans == 'Y':
-                    new_pokemon = Pokemon(pokemon.evolution[0], pokemon.evolution[1], pokemon.level)
-                    pokemon.swap_pokemon(new_pokemon)
-    def caught_animation(self):
-        pass
-    def shake(self):
-        pass
-    def break_out(self, ):
-        pass
+                s+="\n{} grew to level {}".format(pokemon.name, pokemon.level)
+            all.append([s, evolve, pokemon])
+        return all
     def enemy_move(self):
         doable = []
         for attack in self.enemy.attacks:
             if attack.pp >0:
                 doable.append(attack)
         if doable == []:
-            return Attack('Strugle',15,1,30,1,100,'None',self.enemy)
+            return Attack('Strugle',15,1,0.3,1,100,'None',('', 100),0)
         return doable[random.randint(0,len(doable)-1)]
 def check(player, curr):
     i= 0
-    if curr.hp==0:
+    if curr.get_hp()==0:
         i =-1
         for pokemon in player.bag.pokemons:
-            if pokemon.hp>0:
+            if pokemon.get_hp()>0:
                 i=1
     return i
 class PvP_Battle(PVE_Encounter):
@@ -137,7 +144,9 @@ class PvP_Battle(PVE_Encounter):
         self.enemy_player = other
         self.player_pokemon , self.enemy= player.main, other.main
         self.turn =0
+        self.used = [self.player_pokemon]
         self.difficulty=difficulty
+        self.caught = False
     def game_on(self):
         """
         returns a tuple of what the each player has to do for the turn
@@ -149,21 +158,19 @@ class PvP_Battle(PVE_Encounter):
     def best_move(self):
         best = [0,None]
         for attack in self.enemy.attacks:
-            print(attack)
             if attack.pp>0:
-                if self.enemy.hp <= 0.25*self.enemy.maxhp and attack.type== 'Heal':
+                if self.enemy.get_hp() <= 0.25*self.enemy.get_maxHp() and attack.type== 'Heal':
                     return attack
                 temp =copy.copy(self.player_pokemon)
-                dmg = temp.hp
+                dmg = temp.get_hp()
                 self.enemy.attack(temp, attack)
-                dmg -=self.enemy.hp
+                dmg -=temp.get_hp()
                 if dmg> best[0]:
                     best= [dmg,attack]
                 if dmg == best[0] and (best[1] is None or attack.speed >best[1].speed):
                     best = [dmg, attack]
         if best[1] is None:
-            print("struggle")
-            return Attack('Strugle',15,1,30,1,100,'None',("", 100))
+            return Attack('Strugle',15,1,0.3,1,100,'None',("", 100),0)
         print(best[1])
         return best[1]
     def enemy_move(self):
@@ -172,7 +179,7 @@ class PvP_Battle(PVE_Encounter):
         return self.best_move()
     def new_enemy(self):
         for pokemon in self.enemy_player.bag.pokemons:
-            if pokemon.hp> 0:
+            if pokemon.get_hp()> 0:
                 self.enemy
                 return pokemon
     def catch(self):

@@ -71,4 +71,4 @@ class Player:
         for pokemon in self.inventory:
             i += '[' + str(pokemon) + '],'
         i= i[:-1]+'\n'
-        return "{},{},{}".format(self.name, self.stance, self.diff)+'\n'+s +i+ self.bag.print_items()
+        return "{},{},{},{}".format(self.name, self.cash,self.stance, self.diff)+'\n'+s +i+ self.bag.print_items()
