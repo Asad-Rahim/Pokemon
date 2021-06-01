@@ -2,7 +2,7 @@ TILE_LENGTH= 40
 from Items import ITEMS
 import random, pygame
 from Encounter import PVE_Encounter, PvP_Battle
-from Pokemon import Pokemon, Status, Attack, ATTACKS
+from Pokemon import Pokemon, Status, Attack, ATTACKS, makeAttack
 from Player import Player
 from UI import UI_encounter
 class Location:
@@ -70,7 +70,6 @@ class Location:
     def get_tile(self, text, i, item_tiles):
         if text[i] == "S":
             t = self.get_tile(text, i + 1, item_tiles)[0]
-            print("LLLLLLLLLLLLL")
             self.player.curr_location = self
             self.player.curr_tile = t
             self.spawn_point = t
@@ -377,7 +376,10 @@ class LoadSave:
         pokemon.hp= float(info[2])
         pokemon.xp = int(info[3])
         pokemon.status = Status(info[4])
-        pokemon.shiny = bool(info[5])
+        if info[5] == "True":
+            pokemon.shiny = True
+        else:
+            pokemon.shiny = False
         
         pokemon.attacks = []
         for potentialAttacks in info[7:]:
@@ -387,7 +389,7 @@ class LoadSave:
 
     def readAttack(self, text):
         info = text[1:-1].split("/")
-        attack = Attack.make(self, info[0], int(info[1]))
+        attack = makeAttack(int(info[0]), int(info[1]))
         return attack
 
     def save(self, player):

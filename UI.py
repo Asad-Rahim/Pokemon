@@ -1,4 +1,4 @@
-from Pokemon import Pokemon, PokemonNode
+from Pokemon import Pokemon, PokemonNode, Type, makeAttack
 import pygame, math, copy
 window=WIDTH=HEIGHT=screen_h=screen_w=front=back=fshiny=bshiny=save = 0
 from Items import ITEMS, Healables, Ball
@@ -29,12 +29,13 @@ def UI_encounter(encounter):
         return i >-1 and k >-1
     def pve_guard():
         i, k = encounter.game_on()
-        return (i!= -1 and k!=1) and not encounter.caught
+        return (i!= -1 and k!=1) 
     while (isinstance(encounter,PvP_Battle) and pvp_guard()) or (not isinstance(encounter, PvP_Battle) and pve_guard()):
-        
         if isinstance(encounter,PvP_Battle) and  encounter.game_on() == (0,1):
             check = True
             swap = False
+            xp_gain(encounter)
+            encounter.used = []
             while check:
                 pygame.draw.rect(window, (25, 187, 212), (20, 380, 510, 300))
                 font = pygame.font.Font('freesansbold.ttf', 18)
@@ -61,6 +62,7 @@ def UI_encounter(encounter):
                 pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
                 if keepbtn.collidepoint(pos) and pressed1:
                     check = False
+                    encounter.used.append(encounter.player_pokemon)
                 if swapbtn.collidepoint(pos) and pressed1:
                     swap = True
                     check = False
@@ -94,8 +96,6 @@ def UI_encounter(encounter):
         pygame.draw.rect(window, (25, 187, 212), (20+shift, 420+mShift, 510, 260))
         font = pygame.font.Font('freesansbold.ttf', 18)
         font2 = pygame.font.Font('freesansbold.ttf', 14)
-        tempx, tempy = 260+shift,260
-        temp = [encounter.player_pokemon, encounter.enemy]
         draw_pokemon(encounter.player_pokemon,encounter)
         draw_pokemon(encounter.enemy,encounter)
         run_txt = font.render("Run", True, (25, 187, 212),(232, 65, 65))
@@ -136,6 +136,8 @@ def UI_encounter(encounter):
             msg = "SPL"
             if a.cat == 0:
                 msg = "PHY"
+            elif a.cat == 2:
+                msg = "STA"
             cat_text = font2.render(msg,True, (0,0,0), (255,255,255))
             if a.pp == 0:
                 pp_text = font2.render("{}/{}pp".format(a.pp, a.max_pp), True, (255, 0, 0), (255,255,255))
@@ -160,21 +162,13 @@ def UI_encounter(encounter):
         pos = pygame.mouse.get_pos()
         pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
         if cont is not None:
-            window.blit(font.render(cont, True, (46, 46, 46), (250, 207, 172)), (100, HEIGHT - 100))
-            window.blit(font.render('Press enter to continue', True, (46, 46, 46), (250, 207, 172)),
-                        (100, HEIGHT - 50))
-            pygame.display.update()
-        while cont is not None:
-            keys = pygame.key.get_pressed()
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    cont = None
-            pygame.time.delay(200)
-            if keys[pygame.K_RETURN]:
-                if cont =='{} was Caught!'.format(encounter.enemy.name):
-                    encounter.player.add_pokemon(encounter.enemy)
-                    encounter.caught = True
+            gap =msg_description(cont, encounter,1)
+            if not encounter.caught:
+                a = encounter.enemy_move()
+                txt = encounter.enemy.attack(encounter.player_pokemon, a)
+                msg_description(cont, encounter,1, gap)
                 cont = None
+            else:
                 break
         if run_btn.collidepoint(pos) and pressed1:
             run = True
@@ -189,11 +183,12 @@ def UI_encounter(encounter):
             if catch is not None:
                 if catch ==4:
                     cont = 'Yay {} was Caught!'.format(encounter.enemy.name)
-                    break
+                    encounter.caught=True
+                    encounter.player.add_pokemon(encounter.enemy)
                 else:
                     cont = 'Darn {} broke out'.format(encounter.enemy.name)
-            a = encounter.enemy_move()
-            print(encounter.enemy.attack(encounter.player_pokemon, a))
+
+
             
         if party_btn.collidepoint(pos) and pressed1:
             swap_menu(encounter)
@@ -202,21 +197,10 @@ def UI_encounter(encounter):
             if a[0].collidepoint(pos) and pressed1:
                 turn = encounter.play(a[1])
                 print(turn)
-                gap = msg_description(turn[0], encounter)
-                msg_description(turn[1], encounter, gap, 0)
+                gap = msg_description(turn[0][0], encounter, turn[0][1])
+                msg_description(turn[1][0], encounter,turn[1][1], gap)
     if encounter.game_on()[0]!=1 and not encounter.caught and not run:
-        all = encounter.xp_gain()
-        for msg, nodes, pokemon in all:
-            gap = msg_description([msg, pokemon], encounter,0)
-            if len(nodes)>0 and isinstance(nodes[-1], PokemonNode):
-                txt = "Oh it looks like {} is about to evolve".format(encounter.pokemon.name)
-                gap = msg_description([txt,encounter.player_pokemon], encounter,0)
-                pokemon.evolve(nodes[-1])
-                txt = "Woah {} evolved into a ".format(pokemon.name, pokemon.node.name)
-                msg_description([txt,encounter.player_pokemon], encounter,gap)
-                ask_learn(pokemon, nodes[:-1], encounter)
-            else:
-                ask_learn(pokemon, nodes, encounter)
+        xp_gain(encounter)
     for pokemon in encounter.used:
         pokemon.restore_stats()
     if isinstance(encounter, PvP_Battle):
@@ -230,15 +214,34 @@ def UI_encounter(encounter):
         for pokemon in encounter.enemy_player.bag.pokemons:
             pokemon.restore_stats()
         encounter.enemy_player.heal()
-def msg_description(message, encounter, gap= 0, delay = 2000):
+def xp_gain(encounter):
+    all = encounter.xp_gain()
+    for msg, nodes, pokemon in all:
+        gap = msg_description(msg, encounter,1)
+        if len(nodes)>0 and isinstance(nodes[-1], PokemonNode):
+            txt = "Oh it looks like {} is about to evolve".format(encounter.pokemon.name)
+            gap = msg_description(txt,encounter,1,0)
+            pokemon.evolve(nodes[-1])
+            txt = "Woah {} evolved into a ".format(pokemon.name, pokemon.node.name)
+            msg_description(txt, encounter,1,gap)
+            ask_learn(pokemon, nodes[:-1], encounter)
+        else:
+            ask_learn(pokemon, nodes, encounter)
+def msg_description(message, encounter, who, gap= 0, delay = 2000):
     if gap==0:
         pygame.draw.rect(window, (25, 187, 212), (20+650, 420+350-150, 510, 130))
-    for msg in message[0].split("\n"):
+    for msg in message.split("\n"):
         font = pygame.font.Font('freesansbold.ttf', 18) 
         window.blit(font.render(msg, True, (0,0,0), (25, 187, 212)), (
             20+650+10,420+350-150+10+gap))
         gap+=40
-    draw_pokemon(message[1], encounter)
+    if who ==0:
+        draw_pokemon(encounter.player_pokemon, encounter)
+        draw_pokemon(encounter.enemy, encounter)
+    elif who ==1:
+        draw_pokemon(encounter.player_pokemon, encounter)
+    elif who ==2:
+        draw_pokemon(encounter.enemy, encounter)
     pygame.display.update()
     pygame.time.delay(delay)
     return gap
@@ -259,6 +262,33 @@ def ask_learn(pokemon, attacks, encounter):
             atkbtns =[]
             while check:
                 pygame.draw.rect(window, (25, 187, 212), (20, 380, 550, 300))
+                x =270
+                y = 720
+                font = pygame.font.Font('freesansbold.ttf', 24)
+                font2 = pygame.font.Font('freesansbold.ttf', 20)
+                name_text = font.render(attack.name, True, (0, 0, 0), (25, 187, 212))
+                type_text = font2.render(attack.type,True, (0,0,0), (25, 187, 212))
+                msg = "SPL"
+                if attack.cat == 0:
+                    msg = "PHY"
+                cat_text = font2.render(msg,True, (0,0,0), (25, 187, 212))
+                if attack.pp == 0:
+                    pp_text = font2.render("{}/{}pp".format(attack.pp, attack.max_pp), True, (255, 0, 0), (25, 187, 212))
+                else:
+                    pp_text = font2.render("{}/{}pp".format(attack.pp, attack.max_pp), True, (0, 0, 0), (25, 187, 212))
+                nameRect = name_text.get_rect()
+                typeRect = type_text.get_rect()
+                ppRect = pp_text.get_rect()
+                catRect = cat_text.get_rect()
+                nameRect.center = (x+10, y-5)
+                typeRect.center = (x-50, y+30)
+                ppRect.center = (x+70, y+30)
+                catRect.center = (x, y+30)
+                pygame.draw.rect(window, (25, 187, 212), (x - 110, y - 30, 260, 80))
+                window.blit(name_text, nameRect)
+                window.blit(type_text, typeRect)
+                window.blit(pp_text, ppRect)
+                window.blit(cat_text, catRect)
                 font = pygame.font.Font('freesansbold.ttf', 18)
                 font2 = pygame.font.Font('freesansbold.ttf', 15)
                 msg = font.render("{} would like to learn {}".format(pokemon.name, attack.name), True, (232, 65, 65), (25, 187, 212))
@@ -314,7 +344,6 @@ def ask_learn(pokemon, attacks, encounter):
                             keep = False
                    
                 elif changebtn.collidepoint(pos) and pressed1:
-                    print(1)
                     wait_till_release()
                     change = True
                     pygame.draw.rect(window, (25, 187, 212), (20, 380, 550, 300))
@@ -987,7 +1016,6 @@ def draw_pokemon_info(player, pokemon):
     pygame.display.update()
     return item, swap, prestege, move, attacks
 def selecting_pokemon(party, inventory):
-    #print(selected[0])
     pos = pygame.mouse.get_pos()
     pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
     for box, pokemon in party:

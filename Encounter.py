@@ -21,10 +21,10 @@ class PVE_Encounter:
         """
         l = []
         for pokemon in self.location.pokemon:
-            for i in range(pokemon[2]):
+            for i in range(int(pokemon[1])):
                 l.append(pokemon)
         pokemon = l[random.randint(0,len(l)-1)]
-        self.enemy = Pokemon(pokemon[0], random.randint(pokemon[2],pokemon[3]))
+        self.enemy = Pokemon(pokemon[0], random.randint(pokemon[2],pokemon[3]), int(pokemon[4]))
     def _play(self):
         while self.game_on():
             print(self.player_pokemon.hp)
@@ -62,8 +62,8 @@ class PVE_Encounter:
                 s[1][0]= "{} has fainted".format(self.enemy.name)
             else:
                 s[1][0]= "{} has fainted".format(self.player_pokemon.name)
-            s[1][1] = self.enemy
-            s[0][1] = self.player_pokemon
+            s[1][1] = 2
+            s[0][1] = 1
         else:
             s[0][0]=self.player_pokemon.attack(self.enemy, attack)
             if self.game_on()[0]==0 and self.game_on()[1]==0:
@@ -72,8 +72,8 @@ class PVE_Encounter:
                 s[1][0]= "{} has fainted".format(self.enemy.name)
             else:
                 s[1][0]= "{} has fainted".format(self.player_pokemon.name)
-            s[0][1] = self.enemy
-            s[1][1] = self.player_pokemon
+            s[0][1] = 2
+            s[1][1] = 1
         print(s)
         print("{} health:{}\t{} health:{}".format(self.player_pokemon.name, self.player_pokemon.get_hp(),
                                                           self.enemy.name, self.enemy.get_hp()))
@@ -109,8 +109,12 @@ class PVE_Encounter:
     def change_pokemon(self, pokemon):
         self.player_pokemon = pokemon
         self.used.append(pokemon)
-    def xp_gain(self, low=90, high=110):
-        xp = self.enemy.level*random.randint(low,high)
+    def xp_gain(self):
+        a= 1
+        if isinstance(self, PvP_Battle):
+            a = 1.5
+        b= self.enemy.node.basexp
+        xp = self.enemy.level*a*b
         xp_per = xp//len(self.used)
         all = []
         for pokemon in self.used:

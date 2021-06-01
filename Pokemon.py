@@ -1,4 +1,4 @@
-import random, math, copy
+import random, math, copy, csv
 MAX_LEVEL=100
 SHINY = 4096
 USELESS = {'Fire':[], 'Water':[],'Electric':["Ground"],'Grass':[],
@@ -55,32 +55,45 @@ POKEMON = {'pikachu': [120, 'Electric', ('Raichu', 20), 190, 24, 'iron tail', 't
 #pokeomon = {index: ["name", "type1/type2", hp, attack, defence, sp atk, sp def, speed, index of evolution, evo lvl, {lvl: [attack],...}]}
 p2= {1:["Bulbasaur", "Grass/Poison", 45, 49, 49, 65, 65, 45, 2,16, {1: ("Tackle", "Growl"), 3: ("Vine Whip")}],
     2:["Ivysaur", "Grass/Poison", 45, 49, 49, 65, 65, 45, 3,32, {1: ["Tackle", "Growl"], 3: ["Vine Whip"]}]}
-STATUSES ={'Burned': [-1,-1, 10, False, 100,"was hurt by it's burn."],
-           '':[-1,-1,0,False,100,'No status effect'],
-           'Confused':[2,5,7,True, 60, "hurt itself in it's confusion."],
-           'Fainted':[-1,-1,0,True, 100, "has fainted."],
-           'Paralyzed':[-1,-1,0,True,50,"can't move"]}
+STATUSES ={'Burned': [-1,-1, 10, False, 100,"was hurt by it's burn.", ''],
+           '':[-1,-1,0,False,100,'No status effect',''],
+           'Confused':[-1,5,7,True, 60, "hurt itself in it's confusion.",'broke out of confusion'],
+           'Fainted':[-1,-1,0,True, 100, "has fainted.", ''],
+           'Paralyzed':[-1,-1,0,True,50,"can't move.",''],
+           'Frozen':[-1,3,0,True,0,'is frozen.',"thawed out."],
+           'Poisoned':[-1,-1,10,False,100,"was hurt by the poison.", ''],
+           "Asleep":[2,5,0,True, 30,"is asleep", "woke up"]}
 p1= {}
 class PokemonNode:
-    def __init__(self, index, name, type, stats, moves):
+    def __init__(self, index, name, type, stats, moves, basexp, growth_rate, catch_rate):
         self.index, self.name, self.type= index, name, type
         self.hp, self.atk, self.deff, self.sAtk, self.sDeff, self.spd = stats
         self.stats= stats
         self.out ={}
         self.attacks =[]
+        self.tmMoves=[]
+        self.basexp=basexp
+        self.growth_rate= growth_rate
+        self.catch_rate = catch_rate
         p1[index] = self
-        for move, lvl in moves:
-            self.connect(Attack.make(self,move),lvl)
-    def connect(self, node, lvl):
-        if lvl in self.out:
-            self.out[lvl].append(node)
-        else:
-            self.out[lvl] = [node]
+        for move, lvl, mode in moves:
+            self.connect(Attack.make(self,move),lvl, mode)
+    def connect(self, node, lvl, mode=1):
         if isinstance(node, Attack):
-            self.attacks.append(node)
-    def make(self, lvl):
-        print(self.index, lvl)
-        return Pokemon(self.index,lvl)
+            if mode ==1:
+                self.attacks.append(node)
+            else:
+                self.tmMoves.append(node)
+        if mode ==1:
+            if lvl in self.out:
+                self.out[lvl].append(node)
+            else:
+                self.out[lvl] = [node]
+        
+    def make(self, lvl, catch_rate = None):
+        if catch_rate is None:
+            catch_rate= self.catch_rate
+        return Pokemon(self.index,lvl, catch_rate)
 class Pokemon:
     """
     Pokemon that can fight, level up and be potentially caught
@@ -97,11 +110,11 @@ class Pokemon:
         self.next_level=10
         self.node = pNode
         self.status = Status('')
+        self.changes = [0,0,0,0,0]
         while self.level<lvl:
             nodes =self.level_up()
             if nodes !=[]:
                 if isinstance(nodes[-1], PokemonNode):
-                    self.evolve(nodes[-1])
                     i+=self.learn(nodes[:-1], i)
                 else:
                     i+=self.learn(nodes, i)
@@ -112,6 +125,33 @@ class Pokemon:
                 self.attacks[attack] = new_attack
     def restore_stats(self):
         self.atk, self.deff, self.sAtk, self.sDeff, self.spd = self.stats
+    def xp_for_level(self):
+        lvl =self.level+1
+        if self.node.growth_rate == "Medium Slow":
+            return 6/5*(lvl**3)-15*(lvl**2)+100*lvl-140
+        elif self.node.growth_rate == "Medium Fast":
+            return lvl**3
+        elif self.node.growth_rate == "Erratic":
+            if lvl <50:
+                return (100-lvl)/50*lvl**3
+            elif 50<=lvl<68:
+                return (150-lvl)/100*lvl**3
+            elif 68<=lvl<98:
+                return (1911-10*lvl)/1500*lvl**3
+            return (160-lvl)/100*lvl**3
+        elif self.node.growth_rate == "Fast":
+            return 4/5*lvl**3
+        elif self.node.growth_rate == "Slow":
+            return 5/4*lvl**3
+        else:#Fluctuating
+            if lvl <15:
+                num = lvl+1/3 +24
+                return num/50*lvl**3
+            elif 15<=lvl<36:
+                num= (lvl+14)/50
+                return num*lvl**3
+            num = lvl/2 +32
+            return num/50*lvl**3
     def level_up(self):
         self.level+=1
         self.atk+= self.atk/50
@@ -122,16 +162,16 @@ class Pokemon:
         hp= self.maxhp/50
         self.maxhp+=hp
         self.hp+=hp
-        self.next_level = self.level**3
+        self.next_level = self.xp_for_level()
         self.stats = [self.atk, self.deff, self.sAtk, self.sDeff, self.spd]
         if self.level in self.node.out:
             return self.node.out[self.level]
         return []
     def evolve(self, node):
         new = node.make(self.level)
-        self.hp += new.maxHp- self.maxhp
+        self.hp += new.maxhp- self.maxhp
         self.name, self.maxhp, self.num, self.atk, self.deff, self.sAtk, \
-            self.sDeff, self.spd=new.name, new.maxHp, new.num, new.atk, new.deff, new.sAtk, new.sDef, new.spd
+            self.sDeff, self.spd=new.name, new.maxhp, new.num, new.atk, new.deff, new.sAtk, new.sDeff, new.spd
         
     def learn(self, attacks, index):
         for attack in attacks:
@@ -177,7 +217,6 @@ class Pokemon:
     def set_attacks(self, attacks=None):
         if attacks is None:
             for attack in self.attacks:
-                print(attack)
                 attack.damage += 2
             return
         for attack in attacks:
@@ -210,7 +249,7 @@ class Pokemon:
             if t in STRENGTHS[attack.type]:
                 num*2
         return num
-    def attack(self, victim, attack):
+    def attack(self,  victim, attack):
         """
         use attack on victim. Doesn't nessecarly mean damage victim. Also return a descriotion of what happened.
         Descpription will make the game feel more immerserve insread of seeing a health bar
@@ -221,15 +260,20 @@ class Pokemon:
             attack.pp -= 1
             extra = '{} used {}'.format(self.name, attack.name)
             if status[1]:
-                if attack.type == 'Heal':
+                if isinstance(attack, StatAttack):
+                    if attack.user:
+                        extra += attack.enact(self)
+                    else:
+                        extra += attack.enact(victim)
+                elif attack.type == 'Heal':
                     self.status.name = ''
                     self.set_hp(attack.damage)
-                    return (extra +' and recovered some hp.',attack.damage),
+                    return extra +' and recovered some hp.',attack.damage
                 else:
                     if attack.cat == 0:
                         damage = (2*self.level/5+2)*attack.damage*self.atk/victim.deff/50 +2
                     else:
-                        damage = (2*self.level/5+2)*self.sAtk/victim.sDeff/50 +2
+                        damage = (2*self.level/5+2)*attack.damage*self.sAtk/victim.sDeff/50 +2
                     damage*= self.dmgMulti(victim, attack) 
                     victim.set_hp(math.trunc(damage))
                     sd = math.trunc(damage*attack.self_damage)
@@ -242,7 +286,7 @@ class Pokemon:
                         extra += '.\n{} is now {}'.format(victim.name, victim.status.name)
 
             else:
-                extra = '{} tried using {}, but is {}.'.format(self.name, attack.name, self.status.name)
+                extra = '{} tried using {}, but {}.'.format(self.name, attack.name, self.status.description)
         else:
             extra = '{} tried using {}, but missed.'.format(self.name, attack.name)
         if status[0] != 0:
@@ -285,6 +329,7 @@ class Pokemon:
         return math.trunc(self.sDeff)
     def get_spd(self):
         return math.trunc(self.spd)
+
 class Attack:
     '''
     name: name of attack
@@ -297,7 +342,8 @@ class Attack:
     and what is the likelyhood of the status working
     cat: 0 if the attack is phsyical and 1 if the attack is special
     '''
-    def __init__(self,name, damage, pp, self_damage, speed,accuracy,type, status, cat):
+    def __init__(self,id, name, damage, pp, self_damage, speed,accuracy,type, status, cat, who):
+        self.Id= id
         self.name = name
         self.damage = damage
         self.pp =self.max_pp= pp
@@ -306,15 +352,124 @@ class Attack:
         self.accuracy = accuracy
         self.self_damage = self_damage
         self.status = status[0], status[1]
+        self.who = who
         self.cat = cat
     def make(self, name, pp=None):
         a = ATTACKS[name]
-        atk =Attack(name, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7])
+        atk =Attack(name, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8])
         if pp is not None:
             atk.pp= pp
         return atk
+    def use(self, player, pokemon, victim):
+        status = pokemon.status.status_effect()
+        s = []
+        self.pp -= 1
+        if status[1]:
+            if pokemon.status.name !='':
+                s.append(pokemon.status.snapOut)
+            if self.accuracy >= random.randint(1,100) or self.effect ==18:
+                s.append('{} used {}'.format(pokemon.name, self.name))
+                if self.who == 13:
+                    for p in player.bag.pokemons:
+                        if p.get_hp()>0:
+                            self.ennact(p,p)
+                elif self.who == 10:
+                    s.append(self.ennact(pokemon, victim))
+                elif self.who == 7:
+                    s.append(self.ennact(pokemon,pokemon))
+            else:
+                s.append('{} tried using {}, but missed.'.format(self.name, self.name))
+        else:
+            s.append('{} tried using {}, but {}.'.format(pokemon.name, self.name, self.status.description))
+        if status[0] != 0:
+            self.set_hp(status[0])
+        return s
+
+    def ennact(self, pokemon, victim):
+        if self.effect ==2:
+            victim.status = Status("Asleep")
+        elif self.effect == 3:
+            pass
+        if isinstance(attack, StatAttack):
+            if attack.user:
+                extra += attack.enact(self)
+            else:
+                extra += attack.enact(victim)
+        elif attack.type == 'Heal':
+            self.status.name = ''
+            self.set_hp(attack.damage)
+            return extra +' and recovered some hp.',attack.damage
+        else:
+            if attack.cat == 0:
+                damage = (2*self.level/5+2)*attack.damage*self.atk/victim.deff/50 +2
+            else:
+                damage = (2*self.level/5+2)*self.sAtk/victim.sDeff/50 +2
+            damage*= self.dmgMulti(victim, attack) 
+            victim.set_hp(math.trunc(damage))
+            sd = math.trunc(damage*attack.self_damage)
+            if sd != 0:
+                s = '.\n{} was hit with recoil during the attack'.format(self.name) +s
+                self.set_hp(sd)
+            extra += s
+            if attack.status[0] != '' and attack.status[1] >= random.randint(1,100):
+                victim.status = Status(attack.status[0])
+                extra += '.\n{} is now {}'.format(victim.name, victim.status.name)
+
     def __str__(self):
-        return "({}/{})".format(self.name, self.pp)
+        return "({}/{})".format(self.Id, self.pp)
+class StatAttack(Attack):
+    def __init__(self, name, pp, accuracy, stat, boost,speed, user) -> None:
+        Attack.__init__(self, name, 0, pp, 0,speed,accuracy,  "Normal",('',100), 0)
+        self.stat = stat
+        self.boost= boost
+        self.user= user
+        self.stats = {0:"Atk", 1:"Def", 2:"S.Atk", 3:"S.Def", 4:"Spd"}
+    def lookup(self, pokemon, stat):
+        if 6>=pokemon.changes[stat] >=0:
+            return pokemon.stats[stat](1+pokemon.changes[stat]*0.5)
+        elif pokemon.changes[stat] ==-1:
+            return pokemon.stats[stat]*2/3
+        elif pokemon.changes[stat] ==-2:
+            return pokemon.stats[stat]*0.5
+        elif pokemon.changes[stat] ==-3:
+            return pokemon.stats[stat]*0.4
+        elif pokemon.changes[stat] ==-4:
+            return pokemon.stats[stat]/3 
+        elif pokemon.changes[stat] ==-5:
+            return pokemon.stats[stat]*0.285
+        elif pokemon.changes[stat] ==-6:
+            return pokemon.stats[stat]*0.25   
+    def set_stat(self, pokemon, stat, num):
+        if stat==0:
+            pokemon.atk= num
+        elif stat==1:
+            pokemon.deff = num
+        elif stat==2:
+            pokemon.sAtk = num
+        elif stat == 3:
+            pokemon.sDeff= num
+        else:
+            pokemon.spd = num
+    def enact(self, pokemon):
+        if self.boost:
+            pokemon.changes[self.stat] +=1
+            s =self.lookup(pokemon, 0)
+            if s is not None:
+                self.set_stat(pokemon, self.stat,s)
+                msg = "{}'s {} increased".format(pokemon.name, self.stats[self.stat])
+            else:
+                pokemon.changes[0] =6
+                msg = "{}'s {} cannot be raised anymore".format(pokemon.name, self.stats[self.stat])
+        else:
+            pokemon.changes[self.stat]-=1
+            s =self.lookup(pokemon, 0)
+            if s is not None:
+                self.set_stat(pokemon, self.stat,s)
+                msg = "{}'s {} decreased".format(pokemon.name, self.stats[self.stat])
+            else:
+                pokemon.changes[0] =-6
+                msg = "{}'s {} cannot be lowered anymore".format(pokemon.name, self.stats[self.stat])
+        return msg        
 class Status:
     '''
     The status of a pokemon
@@ -326,6 +481,7 @@ class Status:
     chance: what is trhe chance to break out of the status once, after the minnium turn
     description: what will be said once the status takes effect
     '''
+
     def __init__(self, name):
         self.name = name
         s = STATUSES[name]
@@ -336,6 +492,7 @@ class Status:
         self.stop = s[3]
         self.chance = s[4]
         self.description = s[5]
+        self.snapOut= s[6]
     def status_effect(self):
         if self.name == '' or self.curr_turn == self.max_turn:
             self.name = ''
@@ -346,16 +503,137 @@ class Status:
                 return 0, True
         self.curr_turn +=1
         return self.damage, not self.stop
+def makeAttack(num, pp = None):
+    a = READATTACKS[num]
+    atk =Attack(num, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9])
+    if pp is not None:
+        atk.pp= pp
+    return atk
+from csv import reader
+p3 ={}
+with open('pokedex.csv', 'r',encoding="utf8") as file:
+    csvReader = reader(file)
+    header = next(csvReader)
+    count = 0
+    for row in csvReader:
+        if count == 808:
+            break
+        index = int(row[1])
+        if index in p1:
+            continue
+        name = row[2]
+        if int(row[8]) ==2:
+            Type = row[9]+'/'+row[10]
+        else:
+            Type = row[9]
+        stats= [int(row[18]), int(row[19]), int(row[20]), int(row[21]), int(row[22]), int(row[23])]
+        if row[24][-2:] == '.0':
+            catch = int(row[24][:-2])
+        else:
+            catch= int(row[24])
+        if row[26][-2:] == '.0':
+            exp = int(row[26][:-2])
+        else:
+            exp= int(row[26])
+        grow = row[27]
+        count = index+1
+        p3[name]= PokemonNode(index, name, Type, stats, [], exp, grow, catch)
+TYPES= {1:"Normal", 2:"Fighting", 3:"Flying",
+4:	'Poison',5:'Ground',6:	'Rock',7:'Bug',
+8:	'Ghost',9:'Steel',10:	'Fire',
+11:	'Water',12:'Grass',13:	'Electric',
+14:	'Psychic',15:'Ice',16:	'Dragon',
+17:	'Dark',18:'Fairy',10002:"Unknown"} 
+EFFECTS={5:"Burned", 7:"Paralyzed", 6:"Frozen", 77:"Confused", 2:"Asleep"} 
+READATTACKS= {} 
+with open('moves.csv', 'r',encoding="utf8") as file:
+    csvReader = reader(file)
+    header = next(csvReader)
+    count = 0
+    for row in csvReader:
+        if count >826:
+            break
+        cat = int(row[9])
+        if cat ==2:
+            cat = 0
+        elif cat ==3:
+            cat = 1
+        else:
+            cat = 2  
+        name = row[1]
+        Type = TYPES[int(row[3])]
+        if row[4] == '':
+            power =0
+        else:
+            power = int(row[4])
+        pp= int(row[5])
+        if row[6] == '':
+            acc = 100
+        else:
+            acc = int(row[6])
+        speed = int(row[7])
+        if speed == 0:
+            speed = 1
+        elif speed > 0:
+            speed = 2
+        else:
+            speed = 0
+        sd = float(row[-3])
+        effect = int(row[10])
+        count = int(row[0])+1
+        if int(row[10]) not in EFFECTS:
+            effect = ('',100)
+        else:
+            if row[11] == '':
+                row[11]= '100'
+            effect = (EFFECTS[int(row[10])], int(row[11]))
+        who =int(row[8])
+        if power !=0:
+            READATTACKS[count-1]= [name,power, pp, sd, speed, acc, Type, effect, cat,who]
 
-bul = PokemonNode(1, p2[1][0], p2[1][1], p2[1][2:8],[])
-ivy = PokemonNode(2, p2[2][0], p2[2][1], p2[2][2:8],[])
-ven = PokemonNode(3,"Venusaur", "Grass/Poison", [80,82,83,100,100,80],[("iron tail",1),("thunder",1)])
-ch = PokemonNode(5, "Charmeleon", "Fire",[58,64,58,80,65,80],[("Scratch",1),("Ember",1),("Dragon Breath",12), ("Fire Fang",19)])
-PokemonNode(4, "Charmander", "Fire",[39,52,43,60,50,65],[("Scratch",1),("Ember",4),("Dragon Breath",12)]).connect(ch,16)
-ch.connect(PokemonNode(6, "Charizard", "Fire/Flying",[78,84,78,109,85,100],[("Scratch",1),("Ember",1),("Dragon Breath",12), ("Fire Fang",19), ("Flamethrower",30)]),36)
-war= PokemonNode(8,"Wartortle", "Water", [59,63,80,65,80,58],[])
-PokemonNode(7,"Squirtle", "Water", [44,48,65,50,64,43],[("Tackle",1), ("Water Gun",3), ("Rapid Spin", 9)]).connect(war,16)
-bul.connect(ivy, 16)
-list = ATTACKS["iron tail"]
-bul.connect(Attack("iron tail", list[0], list[1], list[2], list[3], list[4], list[5], list[6], list[7]), 1)
-print(bul.make(1), ivy.make(16), ch.make(30))
+with open('pokemon_moves.csv', 'r',encoding="utf8") as file:
+    csvReader = reader(file)
+    header = next(csvReader)
+    count = 0
+    savedPokemon = 0
+    savedVersion =0
+    for row in csvReader:
+        pokemon = int(row[0])
+        move    = int(row[2])
+        method  = int(row[3])
+        lvl     = int(row[4])
+        if pokemon ==808:
+            break
+        if pokemon == savedPokemon and savedVersion!=int(row[1]):
+            pass
+        else:
+            savedVersion= int(row[1])
+            savedPokemon = pokemon
+            r = row[:-1] +[row[-1][:-1]]
+            if move in READATTACKS:
+                p1[pokemon].connect(makeAttack(move), lvl, method!=4)
+with open('evolution.csv', 'r',encoding="utf8") as file:
+    csvReader = reader(file)
+    header = next(csvReader)
+    for row in csvReader:
+        pokemon = row[0]  
+        evoultion    = row[1]
+        if row[2]!='':
+            lvl  = int(row[2])
+            p3[pokemon].connect(p3[evoultion], lvl)
+print(Pokemon(270, 100))
+
+        #print(row)
+# bul = PokemonNode(1, p2[1][0], p2[1][1], p2[1][2:8],[])
+# ivy = PokemonNode(2, p2[2][0], p2[2][1], p2[2][2:8],[])
+# ven = PokemonNode(3,"Venusaur", "Grass/Poison", [80,82,83,100,100,80],[("iron tail",1),("thunder",1)])
+# ch = PokemonNode(5, "Charmeleon", "Fire",[58,64,58,80,65,80],[("Scratch",1),("Ember",1),("Dragon Breath",12), ("Fire Fang",19)])
+# PokemonNode(4, "Charmander", "Fire",[39,52,43,60,50,65],[("Scratch",1),("Ember",4),("Dragon Breath",12)]).connect(ch,16)
+# ch.connect(PokemonNode(6, "Charizard", "Fire/Flying",[78,84,78,109,85,100],[("Scratch",1),("Ember",1),("Dragon Breath",12), ("Fire Fang",19), ("Flamethrower",30)]),36)
+# war= PokemonNode(8,"Wartortle", "Water", [59,63,80,65,80,58],[])
+# PokemonNode(7,"Squirtle", "Water", [44,48,65,50,64,43],[("Tackle",1), ("Water Gun",3), ("Rapid Spin", 9)]).connect(war,16)
+# war.connect(PokemonNode(9,"Blastoise", "Water", [79,83,100,85,105,78],[("Tackle",1), ("Water Gun",3), ("Rapid Spin", 9)]),36)
+# bul.connect(ivy, 16)
+# list = ATTACKS["iron tail"]
+# bul.connect(Attack("iron tail", list[0], list[1], list[2], list[3], list[4], list[5], list[6], list[7]), 1)
+# print(bul.make(1), ivy.make(16), ch.make(30))
