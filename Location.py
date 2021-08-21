@@ -23,9 +23,17 @@ class Location:
         while text != "EOPL\n":
             t = text.split(",")
             t[-1] = t[-1][:-1]
-            for i in range(len(t)):
-                t[i] = int(t[i])
-            self.pokemon.append(tuple(t))
+            for i in range(1,len(t)):
+                if t[i] != "None":
+                    t[i] = int(t[i])
+            # start = int(t[0].split("-")[0])
+            # if "-" in t[0]:
+            #     end = int(t[0].split("-")[1])
+            # else:
+            #     end = start
+            # for i in range(start, end+1):
+                #self.pokemon.append(tuple([i]+t[1:]))
+            self.pokemon.append(t)
             text = f.readline()
     def create_tile_dict(self, f):
         txt = f.readline()
@@ -96,7 +104,6 @@ class Location:
         elif self.tileDict[text[i]][0] == 'T':
             self.trainers[self.tileDict[text[i]][1]].curr_location= self
             floor = self.get_tile(self.tileDict[text[i]][2],0,item_tiles)[0]
-            print(floor.print())
             t = Other_Player_Tile(self.tileDict[text[i]][1],self.trainers[self.tileDict[text[i]][1]], floor)
             self.trainers[self.tileDict[text[i]][1]].curr_tile = t
             return t, i+1
@@ -130,8 +137,10 @@ class Location:
                 info = tile.print()
                 
             if isinstance(tile, Exit_Tile):
+                
                 char = tile.new_location.id
                 d[info[2:]] = tile.new_location.id
+                print(char, d[info[2:]])
             elif info in d:
                 char = d[info]
             else:
@@ -154,6 +163,7 @@ class Location:
         for key, item in d.items():
             s += "{},{}".format(item, key)+'\n'
         i = 'EOD\n{},{},{}\n'.format(self.height, self.width, self.id)
+        print(d)
         return "SOL\n"+s+i+tiles
 
 
@@ -161,15 +171,19 @@ class Tile:
     """
     Basic tile class. Tiles are what the player walks around on in the screen
     """
-    def __init__(self, spriteNum = None, height = TILE_LENGTH, width= TILE_LENGTH):
+    def __init__(self, spriteNum = 'None', height = TILE_LENGTH, width= TILE_LENGTH):
         self.height, self.width, self.num = height, width, spriteNum
         self.left = self.right= self.up=self.down=self.colour= None
     def walk_to(self, player):
         raise NotImplementedError
     def move_player(self, player):
         player.curr_tile = self
-    def draw(self,x,y,window,walk=None):
-        pygame.draw.rect(window, self.colour, (x, y, TILE_LENGTH, TILE_LENGTH))
+    def draw(self,x,y,window,tiles,walk=None, items= None):
+        if self.num=='None':
+            pygame.draw.rect(window, self.colour, (x, y, TILE_LENGTH, TILE_LENGTH))
+        else:
+            #pygame.draw.rect(window, self.colour, (x, y, TILE_LENGTH, TILE_LENGTH))
+            tiles.draw(window,int(self.num), x,y,0, TILE_LENGTH)
 class Restore_Tile(Tile):
     def __init__(self, num, colour=None):
         Tile.__init__(self,num)
@@ -199,8 +213,8 @@ class Other_Player_Tile(Tile):
         return PvP_Battle(player, self.other_player, self.other_player.diff)
     def print(self):
         return "T,{}/{}".format(self.other_player.name, self.floor.print())
-    def draw(self, x, y, window,walk):
-        self.floor.draw(x,y,window, walk)
+    def draw(self, x, y, window,tiles,walk, items):
+        self.floor.draw(x,y,window, tiles,walk)
         walk.draw(window, self.other_player.stance, x,y, -1)
 class Boundary_Tile(Tile):
     """
@@ -229,7 +243,6 @@ class Wild_Tile(Tile):
     def walk_to(self, player):
         Tile.move_player(self, player)
         if random.randint(1,100) >75:
-            print('Encounter')
             return PVE_Encounter(player,player.curr_location)
     def print(self):
         return "W,{}".format(self.num)
@@ -277,6 +290,10 @@ class Item_Tile(Tile):
             self.next_tile.move_player(player)
             if player.curr_tile == self.next_tile:
                 Tile.move_player(self, player)
+    def draw(self, x, y, window,tiles,walk,items):
+        self.next_tile.draw(x,y,window, tiles,walk, items)
+        if not self.got:
+            items.draw(window, self.item.num, x,y, 0, TILE_LENGTH-2)
     def print(self):
         if self.got:
             return self.next_tile.print()
@@ -312,7 +329,7 @@ class Exit_Tile(Tile):
         return tile.left
 
     def print(self):
-        return '{},E,{}'.format(self.new_location.id, self.num)
+        return '{},E,{},{}'.format(self.new_location.id, self.num, self.new_location.id)
 
 class LoadSave:
     def __init__(self, file):

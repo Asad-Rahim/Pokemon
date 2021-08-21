@@ -9,13 +9,14 @@ class Healables(Item):
     # restore == True then make their health full
     # all_cure == True then restore their status
     # if cure == None then doesn't cure anything
-    def __init__(self, name, status_cure, amount,description, restore = False, all_cure = False):
+    def __init__(self, name, status_cure, amount,description,num, restore = False, all_cure = False):
         self.name = name
         self.cure = status_cure
         self.amount = amount
         self.description = description
         self.restore = restore
         self.all_cure = all_cure
+        self.num = num
     def use(self, pokemon):
         if (pokemon.status.name !='')and (self.all_cure or pokemon.status == self.cure):
             pokemon.status = Status('')
@@ -24,13 +25,22 @@ class Healables(Item):
         else:
             pokemon.set_hp(-1*self.amount)
 
-
-
+class Repellant(Item):
+    def __init__(self, name, numSteps, description, num) -> None:
+        self.name, self.numSteps, self.description, self.num = name, numSteps, description, num
+        self.user= None
+    def userUses(self, user):
+        user.repel = self.numSteps
+        return True
+    def use(self, pokemon=None):
+        
+        pass
 class Ball(Item):
-    def __init__(self, name, catch_rate, description):
+    def __init__(self, name, catch_rate, description, num):
         self.catch_rate = catch_rate
         self.name = name
         self.description = description
+        self.num = num
     def use(self, pokemon):
         """
         Use pokeball on pokemon to see if it is caught. Algorithim is copied from pokemon gen 3
@@ -50,9 +60,10 @@ class Ball(Item):
 class MasterBall(Ball):
     def use(self, pokemon):
          return 4
-ITEMS = {'Poke ball': Ball('Poke ball', 1, 'Used to catch wild pokemon.'),
-         'Ultra ball': Ball('Ultra ball', 1.25, 'Used to catch wild pokemon.'),
-         'Great ball': Ball('Great ball', 1.125, 'Used to catch wild pokemon.'),
-         'Master ball': MasterBall('Master ball', 1, 'Can immediatly catch any wild pokemon.'),
-         'Full Restore': Healables('Full Restore', None, 0, 'Cure all status effects and fully heal pokemon.', True,
-                                   True)}
+ITEMS = {'Poke ball': Ball('Poke ball', 1, 'Ok at catching pokemon',3),
+         'Ultra ball': Ball('Ultra ball', 1.25,'Most consistent way to catch pokemon',1),
+         'Great ball': Ball('Great ball', 1.125, 'Great at catching pokemon',2),
+         'Master ball': MasterBall('Master ball', 1, 'Can immediatly catch any wild pokemon.',0),
+         'Full Restore': Healables('Full Restore', None, 0, 'Cure all status effects and fully heal pokemon.', 23,True,
+                                   True),
+        'Repellant': Repellant("Repellant", 150, "Works for 150 steps", 75)}

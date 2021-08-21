@@ -1,7 +1,7 @@
 from Pokemon import Pokemon, PokemonNode, Type, makeAttack
 import pygame, math, copy
 window=WIDTH=HEIGHT=screen_h=screen_w=front=back=fshiny=bshiny=save = 0
-from Items import ITEMS, Healables, Ball
+from Items import ITEMS, Healables, Ball, Repellant
 from Encounter import PVE_Encounter, PvP_Battle
 continueBtns = [None, None, None, None, None]
 def init(_window, w, h, sw,sh, _sprites, _save):
@@ -14,9 +14,10 @@ def init(_window, w, h, sw,sh, _sprites, _save):
     global back
     global fshiny
     global bshiny
+    global itemSprites
     global save
     window, WIDTH, HEIGHT, screen_w, screen_h , save= _window, w, h, sw, sh, _save
-    front, back, fshiny, bshiny= _sprites
+    front, back, fshiny, bshiny,itemSprites= _sprites
 def btns(btns):
     global continueBtns
     if continueBtns[0] is None:
@@ -30,6 +31,7 @@ def UI_encounter(encounter):
     def pve_guard():
         i, k = encounter.game_on()
         return (i!= -1 and k!=1) 
+    swapped= False
     while (isinstance(encounter,PvP_Battle) and pvp_guard()) or (not isinstance(encounter, PvP_Battle) and pve_guard()):
         if isinstance(encounter,PvP_Battle) and  encounter.game_on() == (0,1):
             check = True
@@ -38,7 +40,7 @@ def UI_encounter(encounter):
             encounter.used = []
             while check:
                 pygame.draw.rect(window, (25, 187, 212), (20, 380, 510, 300))
-                font = pygame.font.Font('freesansbold.ttf', 18)
+                font = pygame.font.SysFont('georgia',24)
                 new_enemy = encounter.new_enemy()
                 msg = font.render("{} is going to send out {}. Will you...".format(encounter.enemy_player.name, new_enemy.name), True, (232, 65, 65), (25, 187, 212))
                 window.blit(msg, (50, 400))
@@ -56,7 +58,7 @@ def UI_encounter(encounter):
                 
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
-                        check = False
+                        exit(0)
                 pygame.display.update()
                 pos = pygame.mouse.get_pos()
                 pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
@@ -68,12 +70,16 @@ def UI_encounter(encounter):
                     check = False
                 encounter.enemy = new_enemy
             if swap:
+                pokemon = encounter.player_pokemon
                 swap_menu(encounter)
+                if pokemon != encounter.player_pokemon:
+                    gap = msg_description("{} was swapped with {}".format(pokemon.name, encounter.player_pokemon.name), encounter, encounter.player_pokemon)
+                    
         shift = 650
         mShift = 380
         if encounter.game_on()[0] ==1:
             pygame.draw.rect(window, (25, 187, 212), (20, 380, 510, 300))
-            font = pygame.font.Font('freesansbold.ttf', 18)
+            font = pygame.font.SysFont('georgia', 18)
             msg = font.render("{} has fainted, who will you send in?".format(encounter.player_pokemon.name), True, (232, 65, 65), (245, 245, 245))
             window.blit(msg, (50, 400))
             swap_menu(encounter)
@@ -94,8 +100,8 @@ def UI_encounter(encounter):
         else:
             front.draw(window, encounter.enemy.num,400+shift,100,4,120)
         pygame.draw.rect(window, (25, 187, 212), (20+shift, 420+mShift, 510, 260))
-        font = pygame.font.Font('freesansbold.ttf', 18)
-        font2 = pygame.font.Font('freesansbold.ttf', 14)
+        font = pygame.font.SysFont('georgia', 18)
+        font2 = pygame.font.SysFont('georgia', 15)
         draw_pokemon(encounter.player_pokemon,encounter)
         draw_pokemon(encounter.enemy,encounter)
         run_txt = font.render("Run", True, (25, 187, 212),(232, 65, 65))
@@ -116,16 +122,7 @@ def UI_encounter(encounter):
         party_btn = pygame.draw.rect(window, (232, 65, 65), (400+shift, 630+mShift, 110, 40))
         window.blit(party_txt, party_rect)
         attacks = []
-        p_hp = font.render("{}/{}".format(encounter.player_pokemon.get_hp(),
-                                          encounter.player_pokemon.get_maxHp()), True, (46,46,46),(255,255,255))
-        e_hp = font.render("{}/{}".format(encounter.enemy.get_hp(), encounter.enemy.get_maxHp()),
-                           True, (46,46,46),(255,255,255))
-        e_rect = e_hp.get_rect()
-        e_rect.center = (500+shift,50)
-        p_rect = p_hp.get_rect()
-        p_rect.center = (100+shift, 180)
-        window.blit(p_hp, p_rect)
-        window.blit(e_hp, e_rect)
+        
         pygame.draw.rect(window, (25, 187, 212), (20+shift, 420+mShift-150, 510, 130))
         for i in range(len(encounter.player_pokemon.attacks)):
             a = encounter.player_pokemon.attacks[i]
@@ -161,12 +158,20 @@ def UI_encounter(encounter):
         pygame.display.update()
         pos = pygame.mouse.get_pos()
         pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
+        if swapped:
+            
+            draw_pokemon(encounter.enemy,encounter)
+            txt = encounter.enemy.attack(encounter.player_pokemon, encounter.enemy_move())
+            gap = msg_description("{} was swapped with {}".format(pokemon.name, encounter.player_pokemon.name), encounter, encounter.player_pokemon)
+            draw_pokemon(encounter.player_pokemon,encounter)
+            msg_description(txt, encounter,encounter.enemy, gap+10)
+            swapped = False
         if cont is not None:
             gap =msg_description(cont, encounter,1)
             if not encounter.caught:
                 a = encounter.enemy_move()
                 txt = encounter.enemy.attack(encounter.player_pokemon, a)
-                msg_description(cont, encounter,1, gap)
+                msg_description(cont, encounter,1, gap+10)
                 cont = None
             else:
                 break
@@ -191,14 +196,15 @@ def UI_encounter(encounter):
 
             
         if party_btn.collidepoint(pos) and pressed1:
-            swap_menu(encounter)
-
+            pokemon = encounter.player_pokemon
+            if swap_menu(encounter):
+                swapped = True
         for a in attacks:
             if a[0].collidepoint(pos) and pressed1:
                 turn = encounter.play(a[1])
                 print(turn)
                 gap = msg_description(turn[0][0], encounter, turn[0][1])
-                msg_description(turn[1][0], encounter,turn[1][1], gap)
+                msg_description(turn[1][0], encounter,turn[1][1], gap+10)
     if encounter.game_on()[0]!=1 and not encounter.caught and not run:
         xp_gain(encounter)
     for pokemon in encounter.used:
@@ -231,10 +237,10 @@ def msg_description(message, encounter, who, gap= 0, delay = 2000):
     if gap==0:
         pygame.draw.rect(window, (25, 187, 212), (20+650, 420+350-150, 510, 130))
     for msg in message.split("\n"):
-        font = pygame.font.Font('freesansbold.ttf', 18) 
+        font = pygame.font.SysFont('georgia', 18) 
         window.blit(font.render(msg, True, (0,0,0), (25, 187, 212)), (
             20+650+10,420+350-150+10+gap))
-        gap+=40
+        gap+=30
     if who ==0:
         draw_pokemon(encounter.player_pokemon, encounter)
         draw_pokemon(encounter.enemy, encounter)
@@ -250,7 +256,7 @@ def wait_till_release():
     while wait:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                run =wait = False
+                exit(0)
         pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
         if not pressed1:
             wait = False
@@ -264,8 +270,8 @@ def ask_learn(pokemon, attacks, encounter):
                 pygame.draw.rect(window, (25, 187, 212), (20, 380, 550, 300))
                 x =270
                 y = 720
-                font = pygame.font.Font('freesansbold.ttf', 24)
-                font2 = pygame.font.Font('freesansbold.ttf', 20)
+                font = pygame.font.SysFont('georgia', 24)
+                font2 = pygame.font.SysFont('georgia', 20)
                 name_text = font.render(attack.name, True, (0, 0, 0), (25, 187, 212))
                 type_text = font2.render(attack.type,True, (0,0,0), (25, 187, 212))
                 msg = "SPL"
@@ -289,8 +295,8 @@ def ask_learn(pokemon, attacks, encounter):
                 window.blit(type_text, typeRect)
                 window.blit(pp_text, ppRect)
                 window.blit(cat_text, catRect)
-                font = pygame.font.Font('freesansbold.ttf', 18)
-                font2 = pygame.font.Font('freesansbold.ttf', 15)
+                font = pygame.font.SysFont('georgia', 18)
+                font2 = pygame.font.SysFont('georgia', 15)
                 msg = font.render("{} would like to learn {}".format(pokemon.name, attack.name), True, (232, 65, 65), (25, 187, 212))
                 window.blit(msg, (50, 400))
                 msg = font.render("Should {}:".format(pokemon.name), True, (232, 65, 65), (25, 187, 212))
@@ -309,7 +315,8 @@ def ask_learn(pokemon, attacks, encounter):
                 
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
-                        check = False
+                        exit(0)
+
                 pos = pygame.mouse.get_pos()
                 pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
                 if keepbtn.collidepoint(pos) and pressed1:
@@ -333,7 +340,7 @@ def ask_learn(pokemon, attacks, encounter):
                     while keep:
                         for event in pygame.event.get():
                             if event.type == pygame.QUIT:
-                                check = False
+                                exit(0)
                         pos = pygame.mouse.get_pos()
                         pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
                         if yesbtn.collidepoint(pos) and pressed1:
@@ -388,7 +395,7 @@ def ask_learn(pokemon, attacks, encounter):
                     while change:
                         for event in pygame.event.get():
                             if event.type == pygame.QUIT:
-                                check = False
+                                exit(0)
                         pos = pygame.mouse.get_pos()
                         pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
                         for btn, atk in atkbtns:
@@ -402,15 +409,20 @@ def ask_learn(pokemon, attacks, encounter):
         else:
             msg = "{} learned {}".format(pokemon.name, attack.name)
             pokemon.learn(attack)
-            gap = msg_description([msg,encounter.player_pokemon], encounter,0)
-    pass
+            msg_description([msg,encounter.player_pokemon], encounter,0)
 def draw_pokemon(pokemon, encounter):
+    font = pygame.font.SysFont('georgia', 18)
+    font2 = pygame.font.SysFont('georgia', 15)
+    p_hp = font.render("{}/{}".format(pokemon.get_hp(),
+                                       pokemon.get_maxHp()), True, (46,46,46),(255,255,255))
+    p_rect = p_hp.get_rect()
     if pokemon == encounter.player_pokemon:
         x, y=  260+650,260
+        p_rect.center = (100+650, 180)
     else:
         x,y= 60+650,40
-    font = pygame.font.Font('freesansbold.ttf', 18)
-    font2 = pygame.font.Font('freesansbold.ttf', 15)
+        p_rect.center = (500+650,50)
+    window.blit(p_hp, p_rect)
     pygame.draw.rect(window, (245, 245, 245), (x, y, 200, 100))
     name_txt = font.render(pokemon.name, True, (0,0,0), (245, 245, 245))
     lvl_txt = font.render("lvl {}".format(pokemon.level), True, (0,0,0), (245, 245, 245))
@@ -424,7 +436,6 @@ def draw_pokemon(pokemon, encounter):
     else:
         colour = 255, 0, 0
     pygame.draw.rect(window, colour, (x + 5, y + 50, amount, 10))
-
     window.blit(name_txt, (x+10,y+10))
     window.blit(lvl_txt, (x + 200-50, y + 10))
     window.blit(status_txt, (x + 10, y + 70))
@@ -435,7 +446,7 @@ def swap_menu(encounter):
     player = encounter.player
     x = 660
     pygame.draw.rect(window, (89, 235, 240),(x,180,max(100*len(player.bag.pokemons),400),270))
-    font = pygame.font.Font('freesansbold.ttf', 18)
+    font = pygame.font.SysFont('georgia', 20)
     window.blit(
         font.render("Who would you like to send out?", True, (46, 46, 46), (89, 235, 240)),
         (x+20, 200))
@@ -475,7 +486,7 @@ def swap_menu(encounter):
     while loop:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                loop = run = False
+                exit(0)
         keys = pygame.key.get_pressed()
         pos = pygame.mouse.get_pos()
         pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
@@ -488,7 +499,9 @@ def swap_menu(encounter):
                     player.change_main(pokemon)
                 encounter.player_pokemon = pokemon
                 encounter.used.append(pokemon)
-                loop = run = False
+                return True
+    return False
+
 
 class ItemBagUI:
     def __init__(self, player,pageNum= 1, items= None, pokemon= None, startx= 0, starty= 0, width= screen_w, height= screen_h):
@@ -505,8 +518,10 @@ class ItemBagUI:
         self.citem = None
         self.done = False
     def draw(self):
+        if self.x== self.y== 0:
+            pygame.draw.rect(window, (255,255,255), (0,self.height, WIDTH, HEIGHT-self.height))
         pygame.draw.rect(window, (46,46,46), (self.x, self.y, self.width, self.height))
-        font = pygame.font.SysFont('georgia', 30)
+        font = pygame.font.SysFont('georgia', 35)
         back = window.blit(font.render("Back", True,(46,46,46),(255,255,255)), (self.x+10,self.y+10))
         prevBox = nextBox= None
         items =[]
@@ -527,11 +542,13 @@ class ItemBagUI:
             for k in range(self.rows):
                 if (self.page-1)*(self.rows*self.collums)+ i*self.rows +k <len(self.items):
                     item = l[(self.page-1)*(self.rows*self.collums)+i*self.rows + k]
+                    
                     item_box = pygame.draw.rect(window,(250, 207, 172),(self.x+(i+1)*100+i*x,self.y+30+(k+1)*30+k*150,x,y))
                     window.blit(font.render(str(item[0].name), True, (46, 46, 46), (250, 207, 172)),
                                 ((i + 1) * 100 + i * x + 150+self.x,self.y+ 30 + (k + 1) * 30 + k * 150 + 10))
                     window.blit(font.render("Availability:{}".format(item[1]), True, (46, 46, 46), (250, 207, 172)),
-                        ((i+1)*100+i*x+150+self.x,self.y+30+(k+1)*30+k*150+y-40))
+                        ((i+1)*100+i*x+150+self.x,self.y+20+(k+1)*30+k*150+y-40))
+                    itemSprites.draw(window, item[0].num,self.x+(i+1)*100+i*x, self.y+30+(k+1)*30+k*150, 0, y)
                     items.append((item_box,item[0]))
         pygame.display.update()
         remake= stop = False
@@ -539,7 +556,7 @@ class ItemBagUI:
         while run:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    run = False
+                    exit(0)
             keys = pygame.key.get_pressed()
             pos = pygame.mouse.get_pos()
             pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
@@ -566,24 +583,27 @@ class ItemBagUI:
             elif self.use is not None and self.use.collidepoint(pos) and pressed1:
                 if isinstance(self.citem, Ball):
                     return self.player.bag.consume_item(self.citem, self.pokemon)
-                pygame.draw.rect(window, (89, 235, 240),(150,200,640,400))
+                elif isinstance(self.citem, Repellant):
+                    return self.player.bag.consume_item(self.citem, self.pokemon)
+                pygame.draw.rect(window, (89, 235, 240),(150,200,800,400))
                 window.blit(font.render("Who would you like to use the {} on?".format(self.citem.name),True, (46, 46, 46), (89, 235, 240)),(160, 200))
-                font2 = pygame.font.SysFont('georgia', 15)
+                font2 = pygame.font.SysFont('georgia', 18)
                 x = 160
+                y = 240
                 close =  window.blit(font.render("Cancel",True, (46, 46, 46), (89, 235, 240)),(640, 600))
                 pokemons = []
                 for i in range(len(self.player.bag.pokemons)):
                     sprites = front
                     if self.player.bag.pokemons[i].shiny:
                         sprites = fshiny
-                    sprites.draw(window,self.player.bag.pokemons[i].num, x,220,0,90)
+                    sprites.draw(window,self.player.bag.pokemons[i].num, x,y,0,90)
                     window.blit(font2.render("HP:{}/{}".format(self.player.bag.pokemons[i].get_hp(), self.player.bag.pokemons[i].get_maxHp()),
-                                    True, (46, 46, 46), (89, 235, 240)),(x, 220+90+10))
+                                    True, (46, 46, 46), (89, 235, 240)),(x, y+90+10))
                     window.blit(font2.render(
                         "Status:"+str(self.player.bag.pokemons[i].status.name),
-                        True, (46, 46, 46), (89, 235, 240)), (x, 220 + 90 + 30))
+                        True, (46, 46, 46), (89, 235, 240)), (x, y + 90 + 35))
                     if usuable_item(self.player.bag.pokemons[i], self.citem):
-                        temp = window.blit(font.render("Use",True, (46, 46, 46), (89, 235, 240)), (x, 220 + 90 + 50))
+                        temp = window.blit(font.render("Use",True, (46, 46, 46), (89, 235, 240)), (x, y + 90 + 70))
                         pokemons.append((temp, self.player.bag.pokemons[i]))
                     x+=100
                 pygame.display.update()
@@ -591,7 +611,7 @@ class ItemBagUI:
                 while loop:
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:
-                            loop = run = False
+                            exit(0)
                     keys = pygame.key.get_pressed()
                     pos = pygame.mouse.get_pos()
                     pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
@@ -616,71 +636,9 @@ class ItemBagUI:
             for item in items:
                 if item[0].collidepoint(pos) and pressed1:
                     if self.info and self.pokemon is None:
-                        self.use , self.citem = draw_item_info(self.player, item[1],1), item[1]
+                        self.use , self.citem = draw_item_info(self.player, item[1],2), item[1]
                         pygame.display.update()
                     elif self.info:
-                        '''
-                        self.player.dialogue = item[1].description
-                        loop = True
-                        if isinstance(item[1], Ball):
-                            if item[0][0] == self.x + 100:
-                                pygame.draw.rect(window, (252, 186, 3),
-                                                 (self.x + 100 + x + 85, self.y + 60, 400, self.height - 180))
-                                pygame.draw.rect(window, (252, 186, 3), (self.x + 100 + x, item[0][1] + 10, 85, 70))
-                                window.blit(font.render("Can't use {} right now".format(item[1].name), True, (46, 46, 46), (252, 186, 3)),
-                                        (self.x + 100 + x + 85 + 100, item[0][1] + 60))
-                            else:
-                                pygame.draw.rect(window, (252, 186, 3),
-                                                 (self.x + x - 400 + 85, self.y + 60, 400, self.height - 180))
-                                pygame.draw.rect(window, (252, 186, 3), (self.x + x + 85, item[0][1] + 10, 125, 70))
-                            pygame.display.update()
-                        while loop and self.player.bag.items[item[1]] >0 and isinstance(item[1], Healables):
-                            if item[0][0] ==self.x+100:
-                                pygame.draw.rect(window, (252, 186, 3),(self.x+100+x+85, self.y +60,400,self.height-180))
-                                pygame.draw.rect(window, (252, 186, 3),(self.x+100+x, item[0][1]+10,85,70))
-                                close = window.blit(font.render(" Close ", True, (46, 46, 46), (252, 186, 3)),
-                                        (self.x+100+x+85+100, self.y +60+self.height-180))
-                                gap,count = (self.height-180)//6,0
-                                pokemon = []
-                                for p in self.player.bag.pokemons:
-                                    pokemon.append((sprites.draw(window, p.num,self.x+100+x+85,self.y +60+gap*count,0,gap),p))
-                                    window.blit(font.render("HP:{}/{}".format(p.hp,p.maxhp), True, (46, 46, 46), (250, 207, 172)),
-                                        (self.x+100+x+85+gap, self.y +60+gap*count+15))
-                                    window.blit(font.render("Status:{}".format(p.status.name), True, (46, 46, 46),(250, 207, 172)),
-                                        (self.x + 100 + x + 85 + gap, self.y +60+ gap * count+65))
-                                    count +=1
-                            else:
-                                pygame.draw.rect(window, (252, 186, 3),(self.x+x-400+ 85, self.y + 60, 400, self.height - 180))
-                                pygame.draw.rect(window, (252, 186, 3), (self.x+x+85, item[0][1] + 10, 125, 70))
-                                close = window.blit(font.render(" Close ", True, (46, 46, 46), (252, 186, 3)),
-                                                    (self.x+x-400+ 85+100, self.y + 60 + self.height - 180))
-                                gap, count = (self.height - 180) // 6, 0
-                                pokemon = []
-                                for p in self.player.bag.pokemons:
-                                    pokemon.append(
-                                        (sprites.draw(window, p.num, self.x+x-400+85, self.y + 60 + gap * count, 0,gap),p))
-                                    window.blit(
-                                        font.render("HP:{}/{}".format(p.hp, p.maxhp), True, (46, 46, 46), (250, 207, 172)),
-                                        (self.x+x-400+85 + gap, self.y + 60 + gap * count + 15))
-                                    window.blit(
-                                        font.render("Status:{}".format(p.status.name), True, (46, 46, 46), (250, 207, 172)),
-                                        (self.x+x-400+85+ gap, self.y + 60 + gap * count + 65))
-                                    count += 1
-                            for event in pygame.event.get():
-                                if event.type == pygame.QUIT:
-                                    run = False
-                            keys = pygame.key.get_pressed()
-                            pos = pygame.mouse.get_pos()
-                            pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
-                            if close is not None and close.collidepoint(pos) and pressed1:
-                                loop = run=False
-                                self.draw()
-                            for box, p in pokemon:
-                                if box is not None and box.collidepoint(pos) and pressed1:
-                                    item[1].use(p)
-                                    self.items[item[1]] -=1
-                                    loop =run = False
-                                    self.draw()'''
                         self.use , self.citem = draw_item_info(self.player, item[1]), item[1]
                         pygame.display.update()
                     else:
@@ -697,19 +655,31 @@ def usuable_item(pokemon, item):
         return False
     return True
 def draw_item_info(player, item, mode =0):
+    """
+    mode =0 is helables and ball
+    mode =1 is only healables
+    mode =2 is healables and Repellants
+    """
     pygame.draw.rect(window, (217, 179, 98), (0, screen_h, WIDTH, 200))
-    item.sprite_num = 0
-    front.draw(window, item.sprite_num, 0, screen_h, 0, 180)
+    
+    itemSprites.draw(window, item.num, 0, screen_h-10, 0, 180)
     font = pygame.font.SysFont('georgia', 30)
     window.blit(font.render(item.name, True, (46, 46, 46), (217, 179, 98)), (15, HEIGHT - 35))
     window.blit(font.render('Use:', True, (46, 46, 46), (217, 179, 98)), (215, screen_h+10))
 
     if isinstance(item, Ball):
-        window.blit(font.render(' Thrown at wild pokemon to catch them', True, (46, 46, 46), (217, 179, 98)), (285, screen_h+10))
+        window.blit(font.render('Thrown at wild pokemon to catch them', True, (46, 46, 46), (217, 179, 98)), (285, screen_h+10))
         window.blit(font.render('Effectiveness:{}'.format(item.description), True, (46, 46, 46), (217, 179, 98)), (215, screen_h + 50))
-        if mode:
+        if mode!=0:
             return None
-        return window.blit(font.render("Throw {} at enemy".format(item.name), True, (46, 46, 46), (247, 10, 10)),
+        if player.bag.items[item] >0:
+            return window.blit(font.render("Throw {} at enemy".format(item.name), True, (46, 46, 46), (247, 10, 10)),
+                    (300 + 740, screen_h + 25))
+    elif isinstance(item, Repellant):
+        window.blit(font.render('Used to repel pokemon', True, (46, 46, 46), (217, 179, 98)), (285, screen_h+10))
+        window.blit(font.render('Effectiveness:{}'.format(item.description), True, (46, 46, 46), (217, 179, 98)), (215, screen_h + 50))
+        if mode ==2 and player.bag.items[item] >0:
+            return window.blit(font.render("Use {}".format(item.name), True, (46, 46, 46), (247, 10, 10)),
                     (300 + 740, screen_h + 25))
     else:
         window.blit(font.render(' Given to party pokemon to heal', True, (46, 46, 46), (217, 179, 98)),
@@ -728,7 +698,8 @@ def draw_item_info(player, item, mode =0):
             txt = 'Cures {}'.format(item.cure.name)
         window.blit(font.render('Effect:{}'.format(txt), True, (46, 46, 46), (217, 179, 98)),
                     (215, screen_h + 90))
-        return window.blit(font.render("Use {} on an ally".format(item.name), True, (46, 46, 46), (247, 10, 10)),
+        if player.bag.items[item] >0:
+            return window.blit(font.render("Use {} on an ally".format(item.name), True, (46, 46, 46), (247, 10, 10)),
                     (300 + 740, screen_h + 25))
 
 class InventoryUI():
@@ -738,9 +709,10 @@ class InventoryUI():
         self.store, self.cancel, self.attacks = None,None,  []
         self.save = save
     def draw(self):
+        pygame.draw.rect(window, (255,255,255), (0,screen_h, WIDTH, HEIGHT-screen_h))
         pygame.draw.rect(window, (217, 179, 98), (screen_w - 350, 0, 350, screen_h))
         pygame.draw.rect(window, (73, 122, 201), (0, 0, screen_w-350, screen_h))
-        font = pygame.font.SysFont('georgia', 30)
+        font = pygame.font.SysFont('georgia', 40)
         # Blue 73, 122, 201
         window.blit(font.render("Party Pokemon", True, (46, 46, 46), (217, 179, 98)), (screen_w-350 + 70, 10))
         window.blit(font.render("Inventory Pokemon", True, (46, 46, 46), (73, 122, 201)), (400, 10))
@@ -787,11 +759,11 @@ class InventoryUI():
             selected = self.pokemon
             self.pokemon = None
         itembag = None
-        font = pygame.font.SysFont('georgia', 27)
+        font = pygame.font.SysFont('georgia', 35)
         while run:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    run = False
+                    exit(0)
             keys = pygame.key.get_pressed()
             pos = pygame.mouse.get_pos()
             pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
@@ -817,8 +789,8 @@ class InventoryUI():
                     attacktxt(cat, 200 + 530+150, screen_h+ 75)
                     attacktxt("Speed:{}".format(spd), 200 + 530, screen_h+ 115)
                     attacktxt("Self Damage:{}%".format(int(attack[1].self_damage*100)), 200 + 530+150, screen_h + 115)
-                    if attack[1].status[0] != '':
-                        attacktxt("Has a {}% chance of inflicting {} on victim".format(attack[1].status[1], attack[1].status[0]), 200 + 530, screen_h + 145)
+                    if attack[1].effect != '':
+                        attacktxt("Has a {}% chance of inflicting {} on victim".format(attack[1].chance, attack[1].effect), 200 + 530, screen_h + 145)
             if itembag is not None and itembag.done:
                 run= False
                 self.draw()
@@ -889,7 +861,7 @@ class InventoryUI():
                 while loop:
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:
-                            run = False
+                            exit(0)
                     pos = pygame.mouse.get_pos()
                     pressed1, pressed2, pressed3 = pygame.mouse.get_pressed()
                     if back.collidepoint(pos) and pressed1:
@@ -977,7 +949,7 @@ def draw_pokemon_info(player, pokemon):
     if pokemon.shiny:
         sprites = fshiny
     sprites.draw(window,pokemon.num,0,screen_h,0,180)
-    font = pygame.font.SysFont('georgia', 27)
+    font = pygame.font.SysFont('georgia', 28)
     window.blit(font.render(pokemon.name, True, (46, 46, 46), (217, 179, 98)), (15, HEIGHT-35) )
     window.blit(font.render("Level:{}".format(pokemon.level), True, (46, 46, 46), (217, 179, 98)), (200, screen_h+5))
     window.blit(font.render("Type:{}".format(pokemon.type), True, (46, 46, 46), (217, 179, 98)),(200, screen_h + 45))
@@ -986,7 +958,7 @@ def draw_pokemon_info(player, pokemon):
     window.blit(font.render("Status:{}".format(pokemon.status.name if pokemon.status.name != "" else "Normal" ),
                             True, (46, 46, 46), (217, 179, 98)), (200, screen_h+125))
     
-    window.blit(font.render("XP to level up:{}".format(pokemon.next_level-pokemon.xp), True, (46, 46, 46), (217, 179, 98)),
+    window.blit(font.render("XP to level up:{}".format(int(pokemon.next_level-pokemon.xp)), True, (46, 46, 46), (217, 179, 98)),
                 (200 + 250, screen_h+ 5))
     window.blit(font.render("Atk:{}".format(pokemon.get_atk()), True, (46, 46, 46), (217, 179, 98)),(200+250, screen_h + 45))
     window.blit(font.render("S. Atk:{}".format(pokemon.get_sAtk()), True, (46, 46, 46), (217, 179, 98)),(200+350, screen_h + 45))

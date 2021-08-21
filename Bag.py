@@ -1,11 +1,15 @@
+from Items import Repellant
+
+
 class Bag:
     """
     A bag which the player holds containg everything they have on them. Limited to 6 pokemon
     """
-    def __init__(self):
+    def __init__(self, player):
         self.items ={}
         self.pokemons = []
         self.main = None
+        self.player = player
     def add_pokemon(self, pokemon):
       #precondition len(self.pokemons)<6
         self.pokemons.append(pokemon)
@@ -27,6 +31,8 @@ class Bag:
     def consume_item(self, item, pokemon):
         if self.items[item] >0:
             self.remove_item(item)
+            if isinstance(item, Repellant):
+                return item.userUses(self.player)
             return item.use(pokemon)
         return "You don't have anymore of this item."
     def print_pokemons(self):
